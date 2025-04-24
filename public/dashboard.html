@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IRIS - Teacher Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Error Messages Container -->
+    <div id="error-messages" class="position-fixed top-0 end-0 p-3" style="z-index: 11000;"></div>
+
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <nav id="teacher-sidebar">
+            <div class="sidebar-header">
+                <h3><i class="fas fa-comments iris-logo-sm me-2"></i> IRIS</h3>
+                <p>Teacher Dashboard</p>
+            </div>
+            <ul class="nav-items">
+                <li class="nav-item active" data-tab="students-tab">
+                    <i class="fas fa-users"></i> Students
+                </li>
+                <li class="nav-item" data-tab="sessions-tab">
+                    <i class="fas fa-file-alt"></i> Resume Sessions
+                </li>
+                <li class="nav-item" data-tab="interviews-tab">
+                    <i class="fas fa-video"></i> Mock Interviews
+                </li>
+                <li class="nav-item" data-tab="profile-tab">
+                    <i class="fas fa-user-circle"></i> My Profile
+                </li>
+            </ul>
+            
+            <!-- Teacher Info -->
+            <div class="sidebar-user-info">
+                <div class="user-avatar-container">
+                    <img src="https://i.stack.imgur.com/34AD2.jpg" alt="User" class="user-avatar rounded-circle">
+                    <span class="user-role-badge">Teacher</span>
+                </div>
+                <div class="user-details">
+                    <span class="user-display-name">Loading...</span>
+                    <span class="user-email small">Loading...</span>
+                </div>
+                <div class="text-center mt-2">
+                    <div class="id-badge" id="college-id-badge">College: <span>-</span></div>
+                    <div class="id-badge" id="dept-id-badge">Dept: <span>-</span></div>
+                    <div class="id-badge" id="section-id-badge">Section: <span>-</span></div>
+                </div>
+                <button class="btn btn-sm btn-outline-light signout-button mt-2">
+                    <i class="fas fa-sign-out-alt"></i> Sign Out
+                </button>
+            </div>
+
+            <div class="sidebar-footer">
+                <p>&copy; 2025 IRIS</p>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main id="dashboard-content">
+            <!-- Students Tab -->
+            <section id="students-tab" class="dashboard-tab active">
+                <div class="container-fluid">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h1>My Students</h1>
+                        <div class="input-group w-50">
+                            <input type="text" class="form-control" id="student-search" placeholder="Search students...">
+                            <button class="btn btn-outline-secondary" type="button" id="refresh-students-btn">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Email</th>
+                                            <th>College ID</th>
+                                            <th>Dept ID</th>
+                                            <th>Section ID</th>
+                                            <th>Resume Sessions</th>
+                                            <th>Mock Interviews</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="students-table-body">
+                                        <tr>
+                                            <td colspan="8" class="text-center">Loading students data...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Resume Sessions Tab -->
+            <section id="sessions-tab" class="dashboard-tab">
+                <div class="container-fluid">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h1>Resume Analysis Sessions</h1>
+                        <div class="input-group w-50">
+                            <input type="text" class="form-control" id="session-search" placeholder="Search sessions...">
+                            <button class="btn btn-outline-secondary" type="button" id="refresh-sessions-btn">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Student Name</th>
+                                            <th>Session ID</th>
+                                            <th>Date</th>
+                                            <th>Status</th>
+                                            <th>Match Score</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="sessions-table-body">
+                                        <tr>
+                                            <td colspan="6" class="text-center">Loading sessions data...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Mock Interviews Tab -->
+            <section id="interviews-tab" class="dashboard-tab">
+                <div class="container-fluid">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h1>Mock Interviews</h1>
+                        <div class="input-group w-50">
+                            <input type="text" class="form-control" id="interview-search" placeholder="Search interviews...">
+                            <button class="btn btn-outline-secondary" type="button" id="refresh-interviews-btn">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Student Name</th>
+                                            <th>Interview ID</th>
+                                            <th>Date</th>
+                                            <th>Type</th>
+                                            <th>Status</th>
+                                            <th>Overall Score</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="interviews-table-body">
+                                        <tr>
+                                            <td colspan="7" class="text-center">Loading interviews data...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Teacher Profile Tab -->
+            <section id="profile-tab" class="dashboard-tab">
+                <div class="container-fluid">
+                    <h1>My Profile</h1>
+                    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="card mb-4">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h3 class="mb-0">Account Information</h3>
+                                    <button class="btn btn-sm btn-primary" id="edit-profile-btn">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </button>
+                                </div>
+                                <div class="card-body">
+                                    <!-- View Mode -->
+                                    <div id="profile-view-mode">
+                                        <div class="row mb-3">
+                                            <div class="col-md-3 fw-bold">Name:</div>
+                                            <div class="col-md-9 user-display-name">Loading...</div>
+                                        </div>
+                                        <div class="row mb-3">
+                                            <div class="col-md-3 fw-bold">Email:</div>
+                                            <div class="col-md-9 user-email">Loading...</div>
+                                        </div>
+                                        <div class="row mb-3">
+                                            <div class="col-md-3 fw-bold">Role:</div>
+                                            <div class="col-md-9">Teacher</div>
+                                        </div>
+                                        <div class="row mb-3">
+                                            <div class="col-md-3 fw-bold">College ID:</div>
+                                            <div class="col-md-9" id="profile-college-id">-</div>
+                                        </div>
+                                        <div class="row mb-3">
+                                            <div class="col-md-3 fw-bold">Department ID:</div>
+                                            <div class="col-md-9" id="profile-dept-id">-</div>
+                                        </div>
+                                        <div class="row mb-3">
+                                            <div class="col-md-3 fw-bold">Section ID:</div>
+                                            <div class="col-md-9" id="profile-section-id">-</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Edit Mode (initially hidden) -->
+                                    <form id="profile-edit-form" style="display: none;">
+                                        <div class="mb-3">
+                                            <label for="profile-name" class="form-label">Name</label>
+                                            <input type="text" class="form-control" id="profile-name" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="profile-email" class="form-label">Email (readonly)</label>
+                                            <input type="email" class="form-control" id="profile-email" readonly>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="profile-role" class="form-label">Role (readonly)</label>
+                                            <input type="text" class="form-control" id="profile-role" value="teacher" readonly>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="profile-college-id-input" class="form-label">College ID</label>
+                                            <input type="text" class="form-control" id="profile-college-id-input">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="profile-dept-id-input" class="form-label">Department ID</label>
+                                            <input type="text" class="form-control" id="profile-dept-id-input">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="profile-section-id-input" class="form-label">Section ID</label>
+                                            <input type="text" class="form-control" id="profile-section-id-input">
+                                        </div>
+                                        <div class="d-flex justify-content-end">
+                                            <button type="button" class="btn btn-secondary me-2" id="cancel-edit-btn">Cancel</button>
+                                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                            
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h3 class="mb-0">Security</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-grid gap-3">
+                                        <button class="btn btn-outline-primary" id="change-password-btn">
+                                            <i class="fas fa-lock me-2"></i> Change Password
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="card mb-4">
+                                <div class="card-header bg-primary text-white">
+                                    <h3 class="mb-0">Teacher Stats</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="stats-item mb-3">
+                                        <h5>Students</h5>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Total Students:</span>
+                                            <span id="total-students-count">0</span>
+                                        </div>
+                                    </div>
+                                    <div class="stats-item mb-3">
+                                        <h5>Resume Analyses</h5>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Total Sessions:</span>
+                                            <span id="total-sessions-count">0</span>
+                                        </div>
+                                    </div>
+                                    <div class="stats-item">
+                                        <h5>Mock Interviews</h5>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Total Interviews:</span>
+                                            <span id="total-interviews-count">0</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h3 class="mb-0">Need Help?</h3>
+                                </div>
+                                <div class="card-body">
+                                    <p>If you have any questions or need assistance with your account:</p>
+                                    <div class="d-grid">
+                                        <a href="mailto:support@irisapp.co" class="btn btn-outline-primary">
+                                            <i class="fas fa-envelope me-2"></i> Contact Support
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Session Details Modal -->
+    <div class="modal fade" id="session-details-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Resume Analysis Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="session-details-content">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p>Loading session details...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interview Details Modal -->
+    <div class="modal fade" id="interview-details-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Mock Interview Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="interview-details-content">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p>Loading interview details...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div class="modal fade" id="change-password-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Change Password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="change-password-form">
+                        <div class="mb-3">
+                            <label for="current-password" class="form-label">Current Password</label>
+                            <input type="password" class="form-control" id="current-password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="new-password" class="form-label">New Password</label>
+                            <input type="password" class="form-control" id="new-password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirm-new-password" class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control" id="confirm-new-password" required>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Update Password</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="firebase-auth.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

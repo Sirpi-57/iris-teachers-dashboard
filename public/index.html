@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IRIS - Teacher Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Error Messages Container -->
+    <div id="error-messages" class="position-fixed top-0 end-0 p-3" style="z-index: 11000;"></div>
+
+    <div class="login-container">
+        <div class="login-form-container">
+            <div class="text-center mb-4">
+                <i class="fas fa-comments iris-logo mb-3"></i>
+                <h1>IRIS Teacher Portal</h1>
+                <p class="text-muted">Interview Readiness & Improvement System</p>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <ul class="nav nav-tabs" id="authTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="signin-tab" data-bs-toggle="tab" data-bs-target="#signin-content" type="button" role="tab" aria-controls="signin-content" aria-selected="true">Sign In</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="signup-tab" data-bs-toggle="tab" data-bs-target="#signup-content" type="button" role="tab" aria-controls="signup-content" aria-selected="false">Sign Up</button>
+                        </li>
+                    </ul>
+                    
+                    <div class="tab-content mt-3" id="authTabsContent">
+                        <!-- Sign In Form -->
+                        <div class="tab-pane fade show active" id="signin-content" role="tabpanel" aria-labelledby="signin-tab">
+                            <form id="signin-form">
+                                <div class="mb-3">
+                                    <label for="signin-email" class="form-label">Email address</label>
+                                    <input type="email" class="form-control" id="signin-email" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="signin-password" class="form-label">Password</label>
+                                    <input type="password" class="form-control" id="signin-password" required>
+                                </div>
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary">Sign In</button>
+                                </div>
+                                <div class="text-center mt-3">
+                                    <p><a href="#" id="forgot-password-link">Forgot your password?</a></p>
+                                </div>
+                            </form>
+                        </div>
+                        
+                        <!-- Sign Up Form -->
+                        <div class="tab-pane fade" id="signup-content" role="tabpanel" aria-labelledby="signup-tab">
+                            <form id="signup-form">
+                                <div class="mb-3">
+                                    <label for="signup-name" class="form-label">Full Name</label>
+                                    <input type="text" class="form-control" id="signup-name" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="signup-email" class="form-label">Email address</label>
+                                    <input type="email" class="form-control" id="signup-email" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="signup-password" class="form-label">Password</label>
+                                    <input type="password" class="form-control" id="signup-password" required>
+                                    <div class="form-text">Password must be at least 6 characters long</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="signup-college-id" class="form-label">College ID</label>
+                                    <input type="text" class="form-control" id="signup-college-id" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="signup-dept-id" class="form-label">Department ID</label>
+                                    <input type="text" class="form-control" id="signup-dept-id" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="signup-section-id" class="form-label">Section ID</label>
+                                    <input type="text" class="form-control" id="signup-section-id" required>
+                                </div>
+                                <div class="mb-3 form-check">
+                                    <input type="checkbox" class="form-check-input" id="terms-checkbox" required>
+                                    <label class="form-check-label" for="terms-checkbox">I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></label>
+                                </div>
+                                <div class="d-grid">
+                                    <button type="submit" class="btn btn-primary">Create Teacher Account</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div class="separator mt-3">
+                        <span>OR</span>
+                    </div>
+                    
+                    <div class="d-grid mt-3">
+                        <button type="button" class="btn btn-outline-secondary" id="google-signin-button">
+                            <i class="fab fa-google me-2"></i> Continue with Google
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center mt-4">
+                <p>IRIS Teacher Portal &copy; 2025. All rights reserved.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Reset Modal -->
+    <div class="modal fade" id="reset-password-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Reset Password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="reset-password-form">
+                        <div class="mb-3">
+                            <label for="reset-email" class="form-label">Email address</label>
+                            <input type="email" class="form-control" id="reset-email" required>
+                            <div class="form-text">We'll send you a password reset link.</div>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Send Reset Link</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="firebase-auth.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,341 @@
+/* Global Styles */
+:root {
+    --primary-color: #4a6fdc;
+    --secondary-color: #6c757d;
+    --success-color: #28a745;
+    --danger-color: #dc3545;
+    --light-color: #f8f9fa;
+    --dark-color: #343a40;
+    --sidebar-width: 250px;
+    --sidebar-collapsed-width: 70px;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f5f5f5;
+    margin: 0;
+    padding: 0;
+}
+
+/* Common Components */
+.iris-logo {
+    color: var(--primary-color);
+    font-size: 3rem;
+    display: block;
+}
+
+.iris-logo-sm {
+    color: #fff;
+    font-size: 1.5rem;
+}
+
+.separator {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 15px 0;
+}
+
+.separator::before,
+.separator::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.separator span {
+    padding: 0 10px;
+    color: #6c757d;
+    font-size: 0.8rem;
+}
+
+/* Error Messages Container */
+#error-messages {
+    max-width: 400px;
+}
+
+/* Login Page Styles */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+    background-color: #f5f8ff;
+}
+
+.login-form-container {
+    width: 100%;
+    max-width: 500px;
+}
+
+/* Dashboard Layout */
+.dashboard-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* Sidebar */
+#teacher-sidebar {
+    width: var(--sidebar-width);
+    background-color: #343a40;
+    color: white;
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.3s ease;
+    z-index: 1000;
+    overflow-y: auto;
+}
+
+.sidebar-header {
+    padding: 20px 15px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-header h3 {
+    margin-bottom: 5px;
+    font-size: 1.5rem;
+}
+
+.sidebar-header p {
+    margin: 0;
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+.nav-items {
+    list-style: none;
+    padding: 0;
+    margin: 15px 0;
+}
+
+.nav-item {
+    padding: 12px 15px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+}
+
+.nav-item i {
+    width: 24px;
+    margin-right: 10px;
+    text-align: center;
+}
+
+.nav-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.nav-item.active {
+    background-color: var(--primary-color);
+}
+
+.sidebar-user-info {
+    margin-top: auto;
+    padding: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+}
+
+.user-avatar-container {
+    position: relative;
+    display: inline-block;
+    margin-bottom: 10px;
+}
+
+.user-avatar {
+    width: 64px;
+    height: 64px;
+    object-fit: cover;
+    border: 2px solid white;
+}
+
+.user-role-badge {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    background-color: var(--primary-color);
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.user-details {
+    margin-bottom: 10px;
+}
+
+.user-display-name {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 3px;
+}
+
+.user-email {
+    display: block;
+    opacity: 0.7;
+}
+
+.id-badge {
+    font-size: 0.8rem;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 2px 6px;
+    margin-bottom: 4px;
+    display: inline-block;
+}
+
+.sidebar-footer {
+    padding: 10px;
+    font-size: 0.8rem;
+    text-align: center;
+    opacity: 0.7;
+}
+
+/* Main Content Area */
+#dashboard-content {
+    flex: 1;
+    margin-left: var(--sidebar-width);
+    padding: 20px;
+    transition: margin-left 0.3s ease;
+}
+
+.dashboard-tab {
+    display: none;
+}
+
+.dashboard-tab.active {
+    display: block;
+}
+
+/* Cards and Tables */
+.card {
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.card-header {
+    background-color: #fff;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 15px 20px;
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
+
+/* Status Badges */
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.status-completed {
+    background-color: rgba(40, 167, 69, 0.1);
+    color: var(--success-color);
+}
+
+.status-processing {
+    background-color: rgba(255, 193, 7, 0.1);
+    color: #ffc107;
+}
+
+.status-failed {
+    background-color: rgba(220, 53, 69, 0.1);
+    color: var(--danger-color);
+}
+
+.status-active {
+    background-color: rgba(23, 162, 184, 0.1);
+    color: #17a2b8;
+}
+
+/* Match/Score Indicators */
+.score-indicator {
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-weight: bold;
+    color: white;
+    font-size: 0.9rem;
+}
+
+.score-high {
+    background-color: var(--success-color);
+}
+
+.score-medium {
+    background-color: #ffc107;
+}
+
+.score-low {
+    background-color: var(--danger-color);
+}
+
+/* Form Styles */
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(74, 111, 220, 0.25);
+}
+
+/* Detail Modals */
+.modal-header {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.detail-section {
+    margin-bottom: 20px;
+}
+
+.detail-section h5 {
+    margin-bottom: 10px;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 5px;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    #teacher-sidebar {
+        width: var(--sidebar-collapsed-width);
+    }
+    
+    #teacher-sidebar .sidebar-header p,
+    #teacher-sidebar .user-details,
+    #teacher-sidebar .nav-item span {
+        display: none;
+    }
+    
+    #dashboard-content {
+        margin-left: var(--sidebar-collapsed-width);
+    }
+    
+    .nav-item i {
+        margin-right: 0;
+    }
+}
+
+/* Authentication page mobile optimization */
+@media (max-width: 576px) {
+    .login-form-container {
+        padding: 15px;
+    }
+}
