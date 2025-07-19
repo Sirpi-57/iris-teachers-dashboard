@@ -588,6 +588,1511 @@ function fetchInterviewDetails(interviewId) {
     });
 }
 
+// Helper function to format dates to IST
+function formatToIST(dateString) {
+  if (!dateString) return 'N/A';
+  try {
+    const date = new Date(dateString);
+    // Convert to IST (UTC+5:30)
+    return date.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch (e) {
+    console.error('Error formatting date to IST:', e);
+    return dateString;
+  }
+}
+
+// Helper function to calculate duration between two dates
+function calculateDuration(startTime, endTime) {
+  if (!startTime || !endTime) return 'N/A';
+  try {
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    const durationMs = end - start;
+    const minutes = Math.floor(durationMs / 60000);
+    const seconds = Math.floor((durationMs % 60000) / 1000);
+    return `${minutes}m ${seconds}s`;
+  } catch (e) {
+    console.error('Error calculating duration:', e);
+    return 'N/A';
+  }
+}
+
+// Helper function to extract company name from job description
+function extractCompanyName(jobDescription) {
+  if (!jobDescription) return 'Unknown Company';
+  
+  // Clean up the job description
+  const cleanText = jobDescription.trim();
+  const lines = cleanText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+  
+  // Try multiple extraction patterns
+  const companyPatterns = [
+    // Direct company mentions
+    /(?:Company|Organization|Employer):\s*(.+)/i,
+    /(?:About|At)\s+([A-Z][a-zA-Z\s&.,'-]+?)(?:\s*[-–—]|\s*\n|\s*is\s|\s*we\s)/i,
+    
+    // Job title patterns
+    /(.+?)\s+(?:is\s+)?(?:hiring|seeking|looking\s+for|inviting\s+applications)/i,
+    /(?:Join|Work\s+(?:at|with)|Career\s+at)\s+([A-Z][a-zA-Z\s&.,'-]+?)(?:\s*[-–—]|\s*\n|$)/i,
+    
+    // Position patterns
+    /([A-Z][a-zA-Z\s&.,'-]+?)\s+(?:Job|Position|Role|Opening|Opportunity)/i,
+    /([A-Z][a-zA-Z\s&.,'-]+?)\s+is\s+seeking/i,
+    
+    // Generic patterns
+    /^([A-Z][a-zA-Z\s&.,'-]{2,50}?)(?:\s*[-–—]|\s*\n|\s*is\s|\s*seeks)/,
+    /We\s+are\s+([A-Z][a-zA-Z\s&.,'-]+?)(?:\s*[-–—]|\s*\n|\s*,)/i,
+    
+    // Technology company patterns
+    /((?:[A-Z][a-z]*\s*){1,3}(?:Tech|Technologies|Software|Solutions|Systems|Corp|Corporation|Inc|Ltd|LLC))/i,
+    
+    // Startup/modern company patterns
+    /([A-Z][a-z]+(?:[A-Z][a-z]*)*)\s+(?:startup|company)/i
+  ];
+  
+  // Try each pattern
+  for (const pattern of companyPatterns) {
+    const match = cleanText.match(pattern);
+    if (match && match[1]) {
+      let companyName = match[1].trim();
+      
+      // Clean up the extracted name
+      companyName = companyName
+        .replace(/\s+/g, ' ') // Multiple spaces to single space
+        .replace(/[.,:;!?]+$/, '') // Remove trailing punctuation
+        .replace(/^(a|an|the)\s+/i, '') // Remove leading articles
+        .trim();
+      
+      // Validate the extracted name
+      if (companyName.length >= 2 && 
+          companyName.length <= 60 && 
+          /[a-zA-Z]/.test(companyName) && 
+          !companyName.match(/^(we|our|the|this|that|job|position|role|candidate|applicant)$/i)) {
+        
+        // Capitalize properly
+        companyName = companyName.split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ');
+        
+        return companyName;
+      }
+    }
+  }
+  
+  // Fallback: try to extract from first meaningful line
+  if (lines.length > 0) {
+    const firstLine = lines[0];
+    
+    // If first line looks like a company name (starts with capital, reasonable length)
+    if (firstLine.length > 2 && 
+        firstLine.length < 80 && 
+        /^[A-Z]/.test(firstLine) && 
+        !firstLine.match(/^(job|position|role|we|hiring|seeking|looking)/i)) {
+      
+      // Clean and return first line
+      let companyName = firstLine
+        .replace(/[.,:;!?]+$/, '')
+        .replace(/\s*[-–—].*$/, '') // Remove everything after dash
+        .trim();
+      
+      if (companyName.length >= 2 && companyName.length <= 60) {
+        return companyName;
+      }
+    }
+  }
+  
+  // If all else fails, look for any capitalized words
+  const words = cleanText.match(/\b[A-Z][a-zA-Z]{1,20}\b/g);
+  if (words && words.length > 0) {
+    // Take first 1-3 meaningful words
+    const meaningfulWords = words
+      .filter(word => !word.match(/^(Job|Position|Role|Hiring|We|Our|The|This|That|Company|And|For|With|At|Is|Are|Will|Can|May|Must|Should|Would|Could)$/i))
+      .slice(0, 3);
+    
+    if (meaningfulWords.length > 0) {
+      return meaningfulWords.join(' ');
+    }
+  }
+  
+  return 'Unknown Company';
+}
+
+// Enhanced function to display students with consolidated performance
+function displayStudents(students) {
+  const tableBody = document.getElementById('students-table-body');
+  if (!tableBody) return;
+  
+  if (!students || students.length === 0) {
+      tableBody.innerHTML = `
+          <tr>
+              <td colspan="6" class="text-center py-4">
+                  <div class="alert alert-info mb-0">
+                      <i class="fas fa-info-circle me-2"></i>
+                      No students found matching your criteria.
+                      <br><small class="mt-2 d-block">Students will appear here when they register with matching College ID, Department ID, or Section ID.</small>
+                  </div>
+              </td>
+          </tr>`;
+      return;
+  }
+  
+  let html = '';
+  students.forEach(student => {
+    const studentSessions = authState.sessions.filter(session => session.userId === student.uid);
+    const studentInterviews = authState.interviews.filter(interview => interview.userId === student.uid);
+    
+    // Calculate average performance
+    let avgPerformance = 'N/A';
+    let performanceClass = 'performance-average';
+    
+    const completedSessions = studentSessions.filter(s => s.status === 'completed');
+    const completedInterviews = studentInterviews.filter(i => i.status === 'completed');
+    
+    if (completedSessions.length > 0 || completedInterviews.length > 0) {
+      let totalScore = 0;
+      let scoreCount = 0;
+      
+      // Add session scores
+      completedSessions.forEach(session => {
+        const score = session.results?.match_results?.matchScore;
+        if (score && typeof score === 'number') {
+          totalScore += score;
+          scoreCount++;
+        }
+      });
+      
+      // Add interview scores
+      completedInterviews.forEach(interview => {
+        const score = interview.analysis?.overallScore;
+        if (score && typeof score === 'number') {
+          totalScore += score;
+          scoreCount++;
+        }
+      });
+      
+      if (scoreCount > 0) {
+        avgPerformance = Math.round(totalScore / scoreCount);
+        
+        if (avgPerformance >= 80) performanceClass = 'performance-excellent';
+        else if (avgPerformance >= 65) performanceClass = 'performance-good';
+        else if (avgPerformance >= 45) performanceClass = 'performance-average';
+        else performanceClass = 'performance-poor';
+      }
+    }
+    
+    html += `
+      <tr>
+        <td>${student.displayName || 'N/A'}</td>
+        <td>${student.email || 'N/A'}</td>
+        <td>${studentSessions.length}</td>
+        <td>${studentInterviews.length}</td>
+        <td>
+          <span class="performance-indicator ${performanceClass}">
+            ${avgPerformance !== 'N/A' ? avgPerformance + '%' : 'N/A'}
+          </span>
+        </td>
+        <td>
+          <div class="btn-group-vertical" role="group">
+            <button class="btn btn-sm btn-success download-report-btn mb-1" 
+                    data-id="${student.uid}" 
+                    data-name="${student.displayName || 'Student'}"
+                    title="Download Consolidated Report">
+              <i class="fas fa-download"></i> Report
+            </button>
+            <button class="btn btn-sm btn-outline-primary edit-student-btn mb-1" 
+                    data-id="${student.uid}" 
+                    data-name="${student.displayName || ''}" 
+                    data-email="${student.email || ''}"
+                    data-college="${student.collegeId || ''}"
+                    data-dept="${student.deptId || ''}"
+                    data-section="${student.sectionId || ''}"
+                    title="Edit Student">
+              <i class="fas fa-edit"></i> Edit
+            </button>
+            <button class="btn btn-sm btn-outline-danger delete-student-btn" 
+                    data-id="${student.uid}" 
+                    data-name="${student.displayName || 'this student'}"
+                    title="Delete Student">
+              <i class="fas fa-trash"></i> Delete
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  });
+  
+  tableBody.innerHTML = html;
+}
+
+// Enhanced function to display sessions grouped by student
+function displaySessions(sessions) {
+  const container = document.getElementById('sessions-grouped-container');
+  if (!container) return;
+  
+  if (!sessions || sessions.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-4">
+        <div class="alert alert-info">
+          <i class="fas fa-info-circle me-2"></i>
+          No resume analysis sessions found.
+        </div>
+      </div>
+    `;
+    return;
+  }
+  
+  // Group sessions by student
+  const sessionsByStudent = {};
+  sessions.forEach(session => {
+    const student = authState.students.find(s => s.uid === session.userId);
+    const studentName = student ? student.displayName : 'Unknown Student';
+    const studentId = session.userId;
+    
+    if (!sessionsByStudent[studentId]) {
+      sessionsByStudent[studentId] = {
+        name: studentName,
+        email: student ? student.email : 'Unknown',
+        student: student,
+        sessions: []
+      };
+    }
+    sessionsByStudent[studentId].sessions.push(session);
+  });
+  
+  let html = '';
+  Object.keys(sessionsByStudent).forEach((studentId, index) => {
+    const studentData = sessionsByStudent[studentId];
+    
+    // Calculate session statistics
+    const completedSessions = studentData.sessions.filter(s => s.status === 'completed');
+    const avgScore = completedSessions.length > 0 ? 
+      Math.round(completedSessions.reduce((sum, session) => {
+        const score = session.results?.match_results?.matchScore || 0;
+        return sum + score;
+      }, 0) / completedSessions.length) : 'N/A';
+    
+    // Performance classification
+    let performanceClass = 'performance-average';
+    if (avgScore !== 'N/A') {
+      if (avgScore >= 80) performanceClass = 'performance-excellent';
+      else if (avgScore >= 65) performanceClass = 'performance-good';
+      else if (avgScore >= 45) performanceClass = 'performance-average';
+      else performanceClass = 'performance-poor';
+    }
+    
+    const collapseId = `sessionCollapse${index}`;
+    
+    html += `
+      <div class="student-group-card card mb-4">
+        <div class="student-group-header" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#${collapseId}" aria-expanded="false" aria-controls="${collapseId}">
+          <div class="row align-items-center">
+            <div class="col-md-4">
+              <h5 class="mb-1">
+                <i class="fas fa-chevron-right collapse-icon me-2"></i>
+                ${studentData.name}
+              </h5>
+              <small class="text-light">${studentData.email}</small>
+              ${studentData.student ? `
+                <div class="mt-2">
+                  <small class="badge bg-dark bg-opacity-75 text-white me-1">College: ${studentData.student.collegeId || 'N/A'}</small>
+                  <small class="badge bg-dark bg-opacity-75 text-white me-1">Dept: ${studentData.student.deptId || 'N/A'}</small>
+                  <small class="badge bg-dark bg-opacity-75 text-white">Section: ${studentData.student.sectionId || 'N/A'}</small>
+                </div>
+              ` : ''}
+            </div>
+            <div class="col-md-4 text-center">
+              <div class="row">
+                <div class="col-6">
+                  <div class="stat-item">
+                    <div class="stat-number">${studentData.sessions.length}</div>
+                    <div class="stat-label">Total Sessions</div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="stat-item">
+                    <div class="stat-number">${completedSessions.length}</div>
+                    <div class="stat-label">Completed</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4 text-end">
+              <div class="performance-summary">
+                <div class="performance-indicator-large ${performanceClass} mb-2" style="margin: 0 auto;">
+                  ${avgScore !== 'N/A' ? avgScore + '%' : 'N/A'}
+                </div>
+                <small class="performance-label">Average Match Score</small>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="collapse" id="${collapseId}">
+          <div class="card-body p-0">
+    `;
+    
+    // Group sessions by company and sort by date
+    const sessionsByCompany = {};
+    studentData.sessions.forEach(session => {
+      const companyName = extractCompanyName(session.jobDescription);
+      if (!sessionsByCompany[companyName]) {
+        sessionsByCompany[companyName] = [];
+      }
+      sessionsByCompany[companyName].push(session);
+    });
+    
+    // Sort companies by most recent session
+    const sortedCompanies = Object.keys(sessionsByCompany).sort((a, b) => {
+      const latestA = Math.max(...sessionsByCompany[a].map(s => new Date(s.start_time || 0)));
+      const latestB = Math.max(...sessionsByCompany[b].map(s => new Date(s.start_time || 0)));
+      return latestB - latestA;
+    });
+    
+    sortedCompanies.forEach((companyName, companyIndex) => {
+      const companySessions = sessionsByCompany[companyName].sort((a, b) => 
+        new Date(b.start_time || 0) - new Date(a.start_time || 0)
+      );
+      
+      html += `
+        <div class="company-sessions-group ${companyIndex === 0 ? 'border-top' : ''}">
+          <div class="company-header">
+            <h6 class="company-name">
+              <i class="fas fa-building me-2"></i>${companyName}
+              <span class="badge bg-secondary ms-2">${companySessions.length} session(s)</span>
+            </h6>
+          </div>
+      `;
+      
+      companySessions.forEach((session, sessionIndex) => {
+        const sessionDate = formatToIST(session.start_time);
+        const duration = calculateDuration(session.start_time, session.end_time);
+        const status = session.status || 'unknown';
+        
+        // Extract basic session data
+        const results = session.results || {};
+        const matchResults = results.match_results || {};
+        const matchScore = matchResults.matchScore || null;
+        const jobRequirements = matchResults.jobRequirements || {};
+        
+        // Status styling
+        let statusClass = '';
+        let statusIcon = '';
+        switch(status) {
+          case 'completed': 
+            statusClass = 'status-completed'; 
+            statusIcon = 'fas fa-check-circle';
+            break;
+          case 'processing': 
+            statusClass = 'status-processing'; 
+            statusIcon = 'fas fa-clock';
+            break;
+          case 'failed': 
+            statusClass = 'status-failed'; 
+            statusIcon = 'fas fa-times-circle';
+            break;
+          default: 
+            statusClass = 'status-processing';
+            statusIcon = 'fas fa-clock';
+        }
+        
+        const getScoreClass = (score) => {
+          if (score === null) return 'score-neutral';
+          if (score >= 80) return 'score-excellent';
+          if (score >= 65) return 'score-good';
+          if (score >= 45) return 'score-average';
+          return 'score-poor';
+        };
+        
+        html += `
+          <div class="session-detail-card-clean">
+            <div class="session-header-clean">
+              <div class="row align-items-center">
+                <div class="col-md-6">
+                  <div class="session-basic-info">
+                    <h6 class="session-title">
+                      <i class="fas fa-file-alt me-2"></i>
+                      Session #${sessionIndex + 1}
+                      <span class="status-badge ${statusClass} ms-2">
+                        <i class="${statusIcon} me-1"></i>${status.toUpperCase()}
+                      </span>
+                    </h6>
+                    <div class="session-metadata">
+                      <span class="metadata-item">
+                        <i class="fas fa-calendar me-1"></i>${sessionDate}
+                      </span>
+                      <span class="metadata-item">
+                        <i class="fas fa-clock me-1"></i>${duration}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-3 text-center">
+                  <div class="score-display ${getScoreClass(matchScore)}">
+                    <div class="score-circle-small">
+                      <span class="score-value">${matchScore !== null ? matchScore : 'N/A'}</span>
+                      <span class="score-suffix">${matchScore !== null ? '%' : ''}</span>
+                    </div>
+                    <div class="score-label">Match Score</div>
+                  </div>
+                </div>
+                <div class="col-md-3 text-end">
+                  <div class="session-actions">
+                    <button class="btn btn-sm btn-outline-primary view-session-btn" 
+                            data-id="${session.id}" 
+                            title="View Full Session Details">
+                      <i class="fas fa-eye me-1"></i>Details
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            ${status === 'completed' && jobRequirements && Object.keys(jobRequirements).length > 0 ? `
+              <div class="job-requirements-summary">
+                <div class="row">
+                  <div class="col-md-3">
+                    <div class="requirement-item">
+                      <strong>Position:</strong> ${jobRequirements.jobTitle || 'Not specified'}
+                    </div>
+                  </div>
+                  <div class="col-md-3">
+                    <div class="requirement-item">
+                      <strong>Experience:</strong> ${jobRequirements.experienceLevel || 'Not specified'}
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="requirement-item">
+                      <strong>Education:</strong> ${jobRequirements.educationNeeded || 'Not specified'}
+                    </div>
+                  </div>
+                </div>
+                ${jobRequirements.requiredSkills && jobRequirements.requiredSkills.length > 0 ? `
+                  <div class="required-skills mt-2">
+                    <strong>Required Skills:</strong>
+                    <div class="skills-tags-clean mt-1">
+                      ${jobRequirements.requiredSkills.slice(0, 8).map(skill => 
+                        `<span class="skill-tag-clean">${skill}</span>`
+                      ).join('')}
+                      ${jobRequirements.requiredSkills.length > 8 ? 
+                        `<span class="more-skills">+${jobRequirements.requiredSkills.length - 8} more</span>` : ''}
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+            ` : ''}
+          </div>
+        `;
+      });
+      
+      html += `</div>`;
+    });
+    
+    html += `
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+  
+  // Enhanced collapse functionality
+  document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(button => {
+    button.addEventListener('click', function() {
+      const icon = this.querySelector('.collapse-icon');
+      const target = this.getAttribute('data-bs-target');
+      const collapseElement = document.querySelector(target);
+      
+      if (collapseElement && icon) {
+        collapseElement.addEventListener('shown.bs.collapse', function() {
+          icon.style.transform = 'rotate(90deg)';
+        });
+        
+        collapseElement.addEventListener('hidden.bs.collapse', function() {
+          icon.style.transform = 'rotate(0deg)';
+        });
+      }
+    });
+  });
+}
+
+// Enhanced function to display interviews grouped by student
+function displayInterviews(interviews) {
+  const container = document.getElementById('interviews-grouped-container');
+  if (!container) return;
+  
+  if (!interviews || interviews.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-4">
+        <div class="alert alert-info">
+          <i class="fas fa-info-circle me-2"></i>
+          No mock interviews found.
+        </div>
+      </div>
+    `;
+    return;
+  }
+  
+  // Group interviews by student
+  const interviewsByStudent = {};
+  interviews.forEach(interview => {
+    const student = authState.students.find(s => s.uid === interview.userId);
+    const studentName = student ? student.displayName : 'Unknown Student';
+    const studentId = interview.userId;
+    
+    if (!interviewsByStudent[studentId]) {
+      interviewsByStudent[studentId] = {
+        name: studentName,
+        email: student ? student.email : 'Unknown',
+        student: student,
+        interviews: []
+      };
+    }
+    interviewsByStudent[studentId].interviews.push(interview);
+  });
+  
+  let html = '';
+  Object.keys(interviewsByStudent).forEach((studentId, index) => {
+    const studentData = interviewsByStudent[studentId];
+    
+    // Calculate comprehensive student stats
+    const completedInterviews = studentData.interviews.filter(i => i.status === 'completed');
+    const totalQuestions = studentData.interviews.reduce((total, interview) => {
+      return total + (interview.conversation ? interview.conversation.filter(msg => msg.role === 'assistant').length : 0);
+    }, 0);
+    
+    // Calculate average overall score only
+    let avgOverallScore = 'N/A';
+    
+    if (completedInterviews.length > 0) {
+      const overallScores = completedInterviews
+        .map(i => i.analysis?.overallScore)
+        .filter(score => score && typeof score === 'number');
+      
+      if (overallScores.length > 0) {
+        avgOverallScore = Math.round(overallScores.reduce((a, b) => a + b, 0) / overallScores.length);
+      }
+    }
+    
+    // Performance classification
+    let performanceClass = 'performance-average';
+    if (avgOverallScore !== 'N/A') {
+      if (avgOverallScore >= 80) performanceClass = 'performance-excellent';
+      else if (avgOverallScore >= 65) performanceClass = 'performance-good';
+      else if (avgOverallScore >= 45) performanceClass = 'performance-average';
+      else performanceClass = 'performance-poor';
+    }
+    
+    // Create unique collapse ID for each student
+    const collapseId = `interviewCollapse${index}`;
+    
+    html += `
+      <div class="student-group-card card mb-4">
+        <div class="student-group-header" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#${collapseId}" aria-expanded="false" aria-controls="${collapseId}">
+          <div class="row align-items-center">
+            <div class="col-md-4">
+              <h5 class="mb-1">
+                <i class="fas fa-chevron-right collapse-icon me-2"></i>
+                ${studentData.name}
+              </h5>
+              <small class="text-light">${studentData.email}</small>
+              ${studentData.student ? `
+                <div class="mt-2">
+                  <small class="badge bg-dark bg-opacity-75 text-white me-1">College: ${studentData.student.collegeId || 'N/A'}</small>
+                  <small class="badge bg-dark bg-opacity-75 text-white me-1">Dept: ${studentData.student.deptId || 'N/A'}</small>
+                  <small class="badge bg-dark bg-opacity-75 text-white">Section: ${studentData.student.sectionId || 'N/A'}</small>
+                </div>
+              ` : ''}
+            </div>
+            <div class="col-md-4 text-center">
+              <div class="row">
+                <div class="col-6">
+                  <div class="stat-item">
+                    <div class="stat-number">${studentData.interviews.length}</div>
+                    <div class="stat-label">Total Interviews</div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="stat-item">
+                    <div class="stat-number">${totalQuestions}</div>
+                    <div class="stat-label">Questions Answered</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4 text-end">
+              <div class="performance-summary">
+                <div class="performance-indicator-large ${performanceClass} mb-2" style="margin: 0 auto;">
+                  ${avgOverallScore !== 'N/A' ? avgOverallScore + '%' : 'N/A'}
+                </div>
+                <small class="performance-label">Average Score</small>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="collapse" id="${collapseId}">
+          <div class="card-body p-0">
+    `;
+    
+    // Sort interviews by date (newest first)
+    const sortedInterviews = [...studentData.interviews].sort((a, b) => {
+      const dateA = new Date(a.start_time || 0);
+      const dateB = new Date(b.start_time || 0);
+      return dateB - dateA;
+    });
+    
+    sortedInterviews.forEach((interview, interviewIndex) => {
+      const interviewDate = formatToIST(interview.start_time);
+      const duration = calculateDuration(interview.start_time, interview.end_time);
+      const status = interview.status || 'unknown';
+      const questionCount = interview.conversation ? interview.conversation.filter(msg => msg.role === 'assistant').length : 0;
+      
+      // Extract analysis data - only basic scores
+      const analysis = interview.analysis || {};
+      const overallScore = analysis.overallScore || null;
+      const technicalScore = analysis.technicalAssessment?.score || null;
+      const communicationScore = analysis.communicationAssessment?.score || null;
+      const behavioralScore = analysis.behavioralAssessment?.score || null;
+      
+      // Status styling
+      let statusClass = '';
+      let statusIcon = '';
+      switch(status) {
+        case 'completed': 
+          statusClass = 'status-completed'; 
+          statusIcon = 'fas fa-check-circle';
+          break;
+        case 'active': 
+          statusClass = 'status-active'; 
+          statusIcon = 'fas fa-play-circle';
+          break;
+        case 'failed': 
+          statusClass = 'status-failed'; 
+          statusIcon = 'fas fa-times-circle';
+          break;
+        default: 
+          statusClass = 'status-processing';
+          statusIcon = 'fas fa-clock';
+      }
+      
+      // Score styling function
+      const getScoreClass = (score) => {
+        if (score === null) return 'score-neutral';
+        if (score >= 80) return 'score-excellent';
+        if (score >= 65) return 'score-good';
+        if (score >= 45) return 'score-average';
+        return 'score-poor';
+      };
+      
+      html += `
+        <div class="interview-detail-card-clean ${interviewIndex === 0 ? 'border-top' : ''}">
+          <div class="interview-header-clean">
+            <div class="row align-items-center">
+              <div class="col-md-5">
+                <div class="interview-basic-info">
+                  <h6 class="interview-title">
+                    <i class="fas fa-video me-2"></i>
+                    Interview #${interviewIndex + 1}
+                    <span class="status-badge ${statusClass} ms-2">
+                      <i class="${statusIcon} me-1"></i>${status.toUpperCase()}
+                    </span>
+                  </h6>
+                  <div class="interview-metadata">
+                    <span class="metadata-item">
+                      <i class="fas fa-calendar me-1"></i>${interviewDate}
+                    </span>
+                    <span class="metadata-item">
+                      <i class="fas fa-clock me-1"></i>${duration}
+                    </span>
+                    <span class="metadata-item">
+                      <i class="fas fa-question-circle me-1"></i>${questionCount} questions
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                ${status === 'completed' && analysis ? `
+                  <div class="scores-summary-clean">
+                    <div class="row text-center">
+                      <div class="col-3">
+                        ${overallScore !== null ? 
+                          `<div class="score-badge-clean ${getScoreClass(overallScore)}">${overallScore}%</div>
+                           <small class="score-label-clean">Overall</small>` : 
+                          '<small class="text-muted">Overall<br>N/A</small>'}
+                      </div>
+                      <div class="col-3">
+                        <div class="score-badge-clean score-technical">
+                          ${technicalScore !== null ? technicalScore + '%' : '-'}
+                        </div>
+                        <small class="score-label-clean">Tech</small>
+                      </div>
+                      <div class="col-3">
+                        <div class="score-badge-clean score-communication">
+                          ${communicationScore !== null ? communicationScore + '%' : '-'}
+                        </div>
+                        <small class="score-label-clean">Comm</small>
+                      </div>
+                      <div class="col-3">
+                        <div class="score-badge-clean score-behavioral">
+                          ${behavioralScore !== null ? behavioralScore + '%' : '-'}
+                        </div>
+                        <small class="score-label-clean">Behav</small>
+                      </div>
+                    </div>
+                  </div>
+                ` : `
+                  <div class="no-scores-message">
+                    <small class="text-muted">Analysis not available</small>
+                  </div>
+                `}
+              </div>
+              <div class="col-md-3 text-end">
+                <div class="interview-actions">
+                  <button class="btn btn-sm btn-outline-primary me-2 view-interview-btn" 
+                          data-id="${interview.id}" 
+                          title="View Full Interview Details">
+                    <i class="fas fa-eye me-1"></i>Details
+                  </button>
+                  <button class="btn btn-sm btn-outline-info download-transcript-btn" 
+                          data-id="${interview.id}" 
+                          data-student="${studentData.name}" 
+                          title="Download Interview Transcript">
+                    <i class="fas fa-download me-1"></i>Transcript
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    
+    html += `
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+  
+  // Enhanced collapse functionality with improved animations
+  document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(button => {
+    button.addEventListener('click', function() {
+      const icon = this.querySelector('.collapse-icon');
+      const target = this.getAttribute('data-bs-target');
+      const collapseElement = document.querySelector(target);
+      
+      if (collapseElement && icon) {
+        collapseElement.addEventListener('shown.bs.collapse', function() {
+          icon.style.transform = 'rotate(90deg)';
+        });
+        
+        collapseElement.addEventListener('hidden.bs.collapse', function() {
+          icon.style.transform = 'rotate(0deg)';
+        });
+      }
+    });
+  });
+}
+
+// Function to generate and download consolidated student report
+function downloadStudentReport(studentId, studentName) {
+  if (!studentId) {
+    showErrorMessage('Unable to generate report: Student ID missing');
+    return;
+  }
+  
+  const studentSessions = authState.sessions.filter(session => session.userId === studentId);
+  const studentInterviews = authState.interviews.filter(interview => interview.userId === studentId);
+  const student = authState.students.find(s => s.uid === studentId);
+  
+  // Import jsPDF
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  
+  // Set up fonts and colors
+  const primaryColor = [74, 111, 220]; // #4a6fdc
+  const secondaryColor = [108, 117, 125]; // #6c757d
+  const successColor = [40, 167, 69]; // #28a745
+  const warningColor = [255, 193, 7]; // #ffc107
+  const dangerColor = [220, 53, 69]; // #dc3545
+  
+  let yPosition = 20;
+  const pageWidth = doc.internal.pageSize.width;
+  const margin = 20;
+  const contentWidth = pageWidth - 2 * margin;
+  
+  // Helper function to add new page if needed
+  function checkNewPage(requiredHeight = 20) {
+    if (yPosition + requiredHeight > doc.internal.pageSize.height - 20) {
+      doc.addPage();
+      yPosition = 20;
+      return true;
+    }
+    return false;
+  }
+  
+  // Helper function to wrap text
+  function addWrappedText(text, x, y, maxWidth, fontSize = 10) {
+    doc.setFontSize(fontSize);
+    const lines = doc.splitTextToSize(text, maxWidth);
+    doc.text(lines, x, y);
+    return lines.length * (fontSize * 0.35);
+  }
+  
+  // Title
+  doc.setFontSize(24);
+  doc.setTextColor(...primaryColor);
+  doc.text('IRIS STUDENT PERFORMANCE REPORT', margin, yPosition);
+  yPosition += 15;
+  
+  // Subtitle line
+  doc.setLineWidth(2);
+  doc.setDrawColor(...primaryColor);
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
+  yPosition += 15;
+  
+  // Student Information Section
+  doc.setFontSize(16);
+  doc.setTextColor(0, 0, 0);
+  doc.text('Student Information', margin, yPosition);
+  yPosition += 10;
+  
+  doc.setFontSize(12);
+  doc.text(`Name: ${studentName}`, margin, yPosition);
+  yPosition += 7;
+  doc.text(`Email: ${student ? student.email : 'N/A'}`, margin, yPosition);
+  yPosition += 7;
+  doc.text(`College ID: ${student ? student.collegeId || 'N/A' : 'N/A'}`, margin, yPosition);
+  yPosition += 7;
+  doc.text(`Department ID: ${student ? student.deptId || 'N/A' : 'N/A'}`, margin, yPosition);
+  yPosition += 7;
+  doc.text(`Section ID: ${student ? student.sectionId || 'N/A' : 'N/A'}`, margin, yPosition);
+  yPosition += 7;
+  doc.text(`Report Generated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`, margin, yPosition);
+  yPosition += 15;
+  
+  // Performance Summary Section
+  checkNewPage(50);
+  doc.setFontSize(16);
+  doc.setTextColor(...primaryColor);
+  doc.text('Performance Summary', margin, yPosition);
+  yPosition += 10;
+  
+  // Calculate statistics
+  const completedSessions = studentSessions.filter(s => s.status === 'completed');
+  const completedInterviews = studentInterviews.filter(i => i.status === 'completed');
+  
+  let avgResumeScore = 'N/A';
+  let avgInterviewScore = 'N/A';
+  let overallAverage = 'N/A';
+  
+  if (completedSessions.length > 0) {
+    const resumeScores = completedSessions
+      .map(s => s.results?.match_results?.matchScore)
+      .filter(score => score && typeof score === 'number');
+    
+    if (resumeScores.length > 0) {
+      avgResumeScore = Math.round(resumeScores.reduce((a, b) => a + b, 0) / resumeScores.length);
+    }
+  }
+  
+  if (completedInterviews.length > 0) {
+    const interviewScores = completedInterviews
+      .map(i => i.analysis?.overallScore)
+      .filter(score => score && typeof score === 'number');
+    
+    if (interviewScores.length > 0) {
+      avgInterviewScore = Math.round(interviewScores.reduce((a, b) => a + b, 0) / interviewScores.length);
+    }
+  }
+  
+  // Calculate overall average
+  const allScores = [];
+  if (avgResumeScore !== 'N/A') allScores.push(avgResumeScore);
+  if (avgInterviewScore !== 'N/A') allScores.push(avgInterviewScore);
+  
+  if (allScores.length > 0) {
+    overallAverage = Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length);
+  }
+  
+  // Summary statistics
+  doc.setFontSize(12);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Total Resume Analyses: ${studentSessions.length}`, margin, yPosition);
+  yPosition += 7;
+  doc.text(`Total Mock Interviews: ${studentInterviews.length}`, margin, yPosition);
+  yPosition += 7;
+  doc.text(`Average Resume Match Score: ${avgResumeScore !== 'N/A' ? avgResumeScore + '%' : 'N/A'}`, margin, yPosition);
+  yPosition += 7;
+  doc.text(`Average Interview Score: ${avgInterviewScore !== 'N/A' ? avgInterviewScore + '%' : 'N/A'}`, margin, yPosition);
+  yPosition += 7;
+  
+  // Overall performance with color coding
+  doc.setFontSize(14);
+  doc.setFont(undefined, 'bold');
+  if (overallAverage !== 'N/A') {
+    if (overallAverage >= 80) doc.setTextColor(...successColor);
+    else if (overallAverage >= 65) doc.setTextColor(23, 162, 184); // info color
+    else if (overallAverage >= 45) doc.setTextColor(...warningColor);
+    else doc.setTextColor(...dangerColor);
+  }
+  doc.text(`Overall Average Performance: ${overallAverage !== 'N/A' ? overallAverage + '%' : 'N/A'}`, margin, yPosition);
+  yPosition += 20;
+  
+  // Resume Analysis Sessions
+  if (studentSessions.length > 0) {
+    checkNewPage(30);
+    doc.setFontSize(16);
+    doc.setTextColor(...primaryColor);
+    doc.setFont(undefined, 'bold');
+    doc.text('Resume Analysis Sessions', margin, yPosition);
+    yPosition += 15;
+    
+    studentSessions.forEach((session, index) => {
+      checkNewPage(40);
+      
+      const companyName = extractCompanyName(session.jobDescription);
+      const sessionDate = formatToIST(session.start_time);
+      const matchScore = session.results?.match_results?.matchScore || 'N/A';
+      const status = session.status || 'Unknown';
+      
+      doc.setFontSize(12);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, 'bold');
+      doc.text(`${index + 1}. ${companyName}`, margin, yPosition);
+      yPosition += 8;
+      
+      doc.setFont(undefined, 'normal');
+      doc.text(`Date: ${sessionDate}`, margin + 10, yPosition);
+      yPosition += 6;
+      doc.text(`Status: ${status}`, margin + 10, yPosition);
+      yPosition += 6;
+      doc.text(`Match Score: ${matchScore !== 'N/A' ? matchScore + '%' : 'N/A'}`, margin + 10, yPosition);
+      yPosition += 10;
+      
+      // Add key strengths if available
+      if (session.results?.match_results?.keyStrengths && session.results.match_results.keyStrengths.length > 0) {
+        doc.setFont(undefined, 'bold');
+        doc.text('Key Strengths:', margin + 10, yPosition);
+        yPosition += 6;
+        doc.setFont(undefined, 'normal');
+        
+        session.results.match_results.keyStrengths.slice(0, 3).forEach(strength => {
+          const strengthText = `• ${strength.strength || 'N/A'}`;
+          yPosition += addWrappedText(strengthText, margin + 15, yPosition, contentWidth - 25, 10);
+          yPosition += 2;
+        });
+        yPosition += 5;
+      }
+      
+      // Add skill gaps/weaknesses if available
+      if (session.results?.match_results?.skillGaps && session.results.match_results.skillGaps.length > 0) {
+        checkNewPage(20);
+        doc.setFont(undefined, 'bold');
+        doc.text('Skill Gaps:', margin + 10, yPosition);
+        yPosition += 6;
+        doc.setFont(undefined, 'normal');
+        
+        session.results.match_results.skillGaps.slice(0, 3).forEach(gap => {
+          const gapText = `• ${gap.missingSkill || 'N/A'} (${gap.importance || 'medium'} priority)`;
+          yPosition += addWrappedText(gapText, margin + 15, yPosition, contentWidth - 25, 10);
+          if (gap.suggestion) {
+            yPosition += addWrappedText(`  Suggestion: ${gap.suggestion}`, margin + 20, yPosition, contentWidth - 30, 9);
+          }
+          yPosition += 3;
+        });
+        yPosition += 5;
+      }
+      
+      yPosition += 5;
+    });
+  }
+  
+  // Mock Interview Sessions
+  if (studentInterviews.length > 0) {
+    checkNewPage(30);
+    doc.setFontSize(16);
+    doc.setTextColor(...primaryColor);
+    doc.setFont(undefined, 'bold');
+    doc.text('Mock Interview Sessions', margin, yPosition);
+    yPosition += 15;
+    
+    studentInterviews.forEach((interview, index) => {
+      checkNewPage(50);
+      
+      const companyName = extractCompanyName(interview.jobDescription) || interview.interviewType || 'General';
+      const interviewDate = formatToIST(interview.start_time);
+      const duration = calculateDuration(interview.start_time, interview.end_time);
+      const overallScore = interview.analysis?.overallScore || 'N/A';
+      const technicalScore = interview.analysis?.technicalAssessment?.score || 'N/A';
+      const communicationScore = interview.analysis?.communicationAssessment?.score || 'N/A';
+      const behavioralScore = interview.analysis?.behavioralAssessment?.score || 'N/A';
+      const status = interview.status || 'Unknown';
+      
+      doc.setFontSize(12);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, 'bold');
+      doc.text(`${index + 1}. ${companyName}`, margin, yPosition);
+      yPosition += 8;
+      
+      doc.setFont(undefined, 'normal');
+      doc.text(`Date: ${interviewDate}`, margin + 10, yPosition);
+      yPosition += 6;
+      doc.text(`Duration: ${duration}`, margin + 10, yPosition);
+      yPosition += 6;
+      doc.text(`Status: ${status}`, margin + 10, yPosition);
+      yPosition += 6;
+      doc.text(`Overall Score: ${overallScore !== 'N/A' ? overallScore + '%' : 'N/A'}`, margin + 10, yPosition);
+      yPosition += 6;
+      doc.text(`Technical: ${technicalScore !== 'N/A' ? technicalScore + '%' : 'N/A'} | Communication: ${communicationScore !== 'N/A' ? communicationScore + '%' : 'N/A'} | Behavioral: ${behavioralScore !== 'N/A' ? behavioralScore + '%' : 'N/A'}`, margin + 10, yPosition);
+      yPosition += 10;
+      
+      // Add overall assessment if available
+      if (interview.analysis?.overallAssessment) {
+        checkNewPage(30);
+        doc.setFont(undefined, 'bold');
+        doc.text('Assessment:', margin + 10, yPosition);
+        yPosition += 6;
+        doc.setFont(undefined, 'normal');
+        // Show complete assessment without truncation
+        yPosition += addWrappedText(interview.analysis.overallAssessment, margin + 15, yPosition, contentWidth - 25, 10);
+        yPosition += 8;
+      }
+      
+      // Add detailed feedback if available
+      const assessments = ['technicalAssessment', 'communicationAssessment', 'behavioralAssessment'];
+      const assessmentLabels = ['Technical', 'Communication', 'Behavioral'];
+      
+      assessments.forEach((assessmentKey, idx) => {
+        const assessment = interview.analysis?.[assessmentKey];
+        if (assessment?.feedback) {
+          checkNewPage(25);
+          doc.setFont(undefined, 'bold');
+          doc.text(`${assessmentLabels[idx]} Feedback:`, margin + 10, yPosition);
+          yPosition += 6;
+          doc.setFont(undefined, 'normal');
+          yPosition += addWrappedText(assessment.feedback, margin + 15, yPosition, contentWidth - 25, 10);
+          yPosition += 8;
+        }
+      });
+      
+      yPosition += 5;
+    });
+  }
+  
+  // Recommendations
+  checkNewPage(30);
+  doc.setFontSize(16);
+  doc.setTextColor(...primaryColor);
+  doc.setFont(undefined, 'bold');
+  doc.text('Recommendations', margin, yPosition);
+  yPosition += 15;
+  
+  doc.setFontSize(12);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont(undefined, 'normal');
+  
+  if (overallAverage !== 'N/A') {
+    let recommendation = '';
+    if (overallAverage >= 80) {
+      recommendation = 'Excellent performance! Continue maintaining this high standard and consider mentoring other students.';
+    } else if (overallAverage >= 65) {
+      recommendation = 'Good performance with room for improvement. Focus on identified skill gaps and practice regularly.';
+    } else if (overallAverage >= 45) {
+      recommendation = 'Average performance. Significant improvement needed in weak areas. Consider additional preparation and practice.';
+    } else {
+      recommendation = 'Performance needs substantial improvement. Consider intensive preparation, additional resources, and regular practice sessions.';
+    }
+    
+    yPosition += addWrappedText(recommendation, margin, yPosition, contentWidth, 12);
+    yPosition += 10;
+  }
+  
+  const generalRecommendations = [
+    'Practice mock interviews regularly to build confidence',
+    'Work on identified skill gaps from resume analysis',
+    'Improve communication and presentation skills',
+    'Stay updated with industry trends and requirements',
+    'Seek feedback and act on improvement suggestions'
+  ];
+  
+  doc.setFont(undefined, 'bold');
+  doc.text('General Recommendations:', margin, yPosition);
+  yPosition += 8;
+  doc.setFont(undefined, 'normal');
+  
+  generalRecommendations.forEach(rec => {
+    yPosition += addWrappedText(`• ${rec}`, margin, yPosition, contentWidth, 11);
+    yPosition += 3;
+  });
+  
+  // Footer
+  checkNewPage(30);
+  yPosition = doc.internal.pageSize.height - 30;
+  doc.setFontSize(10);
+  doc.setTextColor(...secondaryColor);
+  doc.text('Generated by IRIS Teacher Dashboard', margin, yPosition);
+  doc.text(`© ${new Date().getFullYear()} IRIS - Interview Readiness & Improvement System`, margin, yPosition + 7);
+  
+  // Save the PDF
+  const fileName = `IRIS_Student_Report_${studentName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+  doc.save(fileName);
+  
+  showSuccessMessage('Student report PDF downloaded successfully!');
+}
+
+
+// Function to download interview transcript
+function downloadInterviewTranscript(interviewId, studentName) {
+  if (!interviewId) {
+    showErrorMessage('Unable to download transcript: Interview ID missing');
+    return;
+  }
+  
+  const db = firebase.firestore();
+  db.collection('interviews').doc(interviewId).get()
+    .then(doc => {
+      if (!doc.exists) {
+        showErrorMessage('Interview not found');
+        return;
+      }
+      
+      const interview = doc.data();
+      const conversation = interview.conversation || [];
+      
+      // Import jsPDF
+      const { jsPDF } = window.jspdf;
+      const pdfDoc = new jsPDF();
+      
+      const primaryColor = [74, 111, 220];
+      const secondaryColor = [108, 117, 125];
+      const interviewerColor = [0, 123, 255];
+      const studentColor = [40, 167, 69];
+      
+      let yPos = 20;
+      const pageWidth = pdfDoc.internal.pageSize.width;
+      const margin = 20;
+      const contentWidth = pageWidth - 2 * margin;
+      
+      // Helper function to add new page if needed
+      function checkNewPage(requiredHeight = 20) {
+        if (yPos + requiredHeight > pdfDoc.internal.pageSize.height - 20) {
+          pdfDoc.addPage();
+          yPos = 20;
+          return true;
+        }
+        return false;
+      }
+      
+      // Helper function to wrap text
+      function addWrappedText(text, x, y, maxWidth, fontSize = 10) {
+        pdfDoc.setFontSize(fontSize);
+        const lines = pdfDoc.splitTextToSize(text, maxWidth);
+        pdfDoc.text(lines, x, y);
+        return lines.length * (fontSize * 0.35);
+      }
+      
+      // Title
+      pdfDoc.setFontSize(20);
+      pdfDoc.setTextColor(...primaryColor);
+      pdfDoc.text('IRIS Mock Interview Transcript', margin, yPos);
+      yPos += 15;
+      
+      // Subtitle line
+      pdfDoc.setLineWidth(1);
+      pdfDoc.setDrawColor(...primaryColor);
+      pdfDoc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 15;
+      
+      // Interview Information
+      pdfDoc.setFontSize(12);
+      pdfDoc.setTextColor(0, 0, 0);
+      pdfDoc.text(`Student: ${studentName}`, margin, yPos);
+      yPos += 7;
+      pdfDoc.text(`Date: ${interview.start_time ? formatToIST(interview.start_time) : 'N/A'}`, margin, yPos);
+      yPos += 7;
+      pdfDoc.text(`Duration: ${calculateDuration(interview.start_time, interview.end_time)}`, margin, yPos);
+      yPos += 7;
+      pdfDoc.text(`Overall Score: ${interview.analysis?.overallScore || 'N/A'}%`, margin, yPos);
+      yPos += 15;
+      
+      // Performance Summary
+      if (interview.analysis) {
+        pdfDoc.setFontSize(14);
+        pdfDoc.setTextColor(...primaryColor);
+        pdfDoc.setFont(undefined, 'bold');
+        pdfDoc.text('Performance Summary', margin, yPos);
+        yPos += 10;
+        
+        pdfDoc.setFontSize(11);
+        pdfDoc.setTextColor(0, 0, 0);
+        pdfDoc.setFont(undefined, 'normal');
+        pdfDoc.text(`Technical Score: ${interview.analysis.technicalAssessment?.score || 'N/A'}%`, margin, yPos);
+        yPos += 6;
+        pdfDoc.text(`Communication Score: ${interview.analysis.communicationAssessment?.score || 'N/A'}%`, margin, yPos);
+        yPos += 6;
+        pdfDoc.text(`Behavioral Score: ${interview.analysis.behavioralAssessment?.score || 'N/A'}%`, margin, yPos);
+        yPos += 6;
+        
+        if (interview.analysis.overallAssessment) {
+          yPos += 5;
+          pdfDoc.setFont(undefined, 'bold');
+          pdfDoc.text('Overall Assessment:', margin, yPos);
+          yPos += 6;
+          pdfDoc.setFont(undefined, 'normal');
+          // Show complete assessment without truncation
+          yPos += addWrappedText(interview.analysis.overallAssessment, margin, yPos, contentWidth, 10);
+          yPos += 10;
+        }
+        
+        // Add detailed feedback for each assessment area
+        const assessments = [
+          { key: 'technicalAssessment', label: 'Technical Feedback' },
+          { key: 'communicationAssessment', label: 'Communication Feedback' },
+          { key: 'behavioralAssessment', label: 'Behavioral Feedback' }
+        ];
+        
+        assessments.forEach(({ key, label }) => {
+          const assessment = interview.analysis[key];
+          if (assessment?.feedback) {
+            checkNewPage(20);
+            pdfDoc.setFont(undefined, 'bold');
+            pdfDoc.text(`${label}:`, margin, yPos);
+            yPos += 6;
+            pdfDoc.setFont(undefined, 'normal');
+            yPos += addWrappedText(assessment.feedback, margin, yPos, contentWidth, 10);
+            yPos += 8;
+          }
+        });
+        yPos += 15;
+      }
+      
+      // Conversation Transcript
+      checkNewPage(30);
+      pdfDoc.setFontSize(14);
+      pdfDoc.setTextColor(...primaryColor);
+      pdfDoc.setFont(undefined, 'bold');
+      pdfDoc.text('Interview Conversation', margin, yPos);
+      yPos += 15;
+      
+      conversation.forEach((msg, index) => {
+        checkNewPage(25);
+        
+        const speaker = msg.role === 'assistant' ? 'INTERVIEWER' : 'STUDENT';
+        const isInterviewer = msg.role === 'assistant';
+        
+        // Speaker label with color
+        pdfDoc.setFontSize(11);
+        pdfDoc.setFont(undefined, 'bold');
+        pdfDoc.setTextColor(...(isInterviewer ? interviewerColor : studentColor));
+        pdfDoc.text(`${speaker}:`, margin, yPos);
+        yPos += 8;
+        
+        // Message content
+        pdfDoc.setFontSize(10);
+        pdfDoc.setTextColor(0, 0, 0);
+        pdfDoc.setFont(undefined, 'normal');
+        yPos += addWrappedText(msg.content || 'No content', margin + 5, yPos, contentWidth - 5, 10);
+        yPos += 8;
+      });
+      
+      // Footer
+      checkNewPage(20);
+      yPos = pdfDoc.internal.pageSize.height - 25;
+      pdfDoc.setFontSize(9);
+      pdfDoc.setTextColor(...secondaryColor);
+      pdfDoc.text('Generated by IRIS Teacher Dashboard', margin, yPos);
+      pdfDoc.text(`© ${new Date().getFullYear()} IRIS - Interview Readiness & Improvement System`, margin, yPos + 6);
+      
+      // Save the PDF
+      const fileName = `Interview_Transcript_${studentName}_${new Date().toISOString().split('T')[0]}.pdf`;
+      pdfDoc.save(fileName);
+      
+      showSuccessMessage('Interview transcript PDF downloaded successfully!');
+    })
+    .catch(error => {
+      console.error('Error downloading transcript:', error);
+      showErrorMessage(`Error downloading transcript: ${error.message}`);
+    });
+}
+
+
+
+// Load jsPDF library if not already loaded
+function loadJsPDF() {
+  return new Promise((resolve, reject) => {
+    if (window.jspdf) {
+      resolve();
+      return;
+    }
+    
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    script.onload = () => {
+      console.log('jsPDF loaded successfully');
+      resolve();
+    };
+    script.onerror = () => {
+      console.error('Failed to load jsPDF');
+      reject(new Error('Failed to load jsPDF library'));
+    };
+    document.head.appendChild(script);
+  });
+}
+
+
+// Student edit function
+function editStudent(studentId, currentData) {
+  // Create edit modal HTML
+  const modalHtml = `
+    <div class="modal fade" id="editStudentModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Edit Student Profile</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="editStudentForm">
+              <div class="mb-3">
+                <label for="editStudentName" class="form-label">Student Name</label>
+                <input type="text" class="form-control" id="editStudentName" value="${currentData.name}" required>
+              </div>
+              <div class="mb-3">
+                <label for="editStudentEmail" class="form-label">Email (readonly)</label>
+                <input type="email" class="form-control" id="editStudentEmail" value="${currentData.email}" readonly>
+              </div>
+              <div class="mb-3">
+                <label for="editStudentCollege" class="form-label">College ID</label>
+                <input type="text" class="form-control" id="editStudentCollege" value="${currentData.college}">
+              </div>
+              <div class="mb-3">
+                <label for="editStudentDept" class="form-label">Department ID</label>
+                <input type="text" class="form-control" id="editStudentDept" value="${currentData.dept}">
+              </div>
+              <div class="mb-3">
+                <label for="editStudentSection" class="form-label">Section ID</label>
+                <input type="text" class="form-control" id="editStudentSection" value="${currentData.section}">
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="saveStudentChanges" data-student-id="${studentId}">Save Changes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Remove existing modal if any
+  const existingModal = document.getElementById('editStudentModal');
+  if (existingModal) existingModal.remove();
+  
+  // Add modal to DOM
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  
+  // Show modal
+  const modal = new bootstrap.Modal(document.getElementById('editStudentModal'));
+  modal.show();
+  
+  // Handle save button
+  document.getElementById('saveStudentChanges').addEventListener('click', function() {
+    const newData = {
+      displayName: document.getElementById('editStudentName').value.trim(),
+      collegeId: document.getElementById('editStudentCollege').value.trim() || null,
+      deptId: document.getElementById('editStudentDept').value.trim() || null,
+      sectionId: document.getElementById('editStudentSection').value.trim() || null,
+      updatedAt: new Date().toISOString()
+    };
+    
+    saveStudentChanges(studentId, newData, modal);
+  });
+}
+
+// Save student changes function
+function saveStudentChanges(studentId, newData, modal) {
+  if (!firebase.firestore || !studentId) {
+    showErrorMessage('Unable to save changes: Database not available');
+    return;
+  }
+  
+  const saveBtn = document.getElementById('saveStudentChanges');
+  const originalText = saveBtn.innerHTML;
+  saveBtn.disabled = true;
+  saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+  
+  const db = firebase.firestore();
+  db.collection('users').doc(studentId).update(newData)
+    .then(() => {
+      // Update local state
+      const studentIndex = authState.students.findIndex(s => s.uid === studentId);
+      if (studentIndex !== -1) {
+        Object.assign(authState.students[studentIndex], newData);
+        displayStudents(authState.students);
+      }
+      
+      showSuccessMessage('Student profile updated successfully!');
+      modal.hide();
+    })
+    .catch(error => {
+      console.error('Error updating student:', error);
+      showErrorMessage(`Error updating student: ${error.message}`);
+    })
+    .finally(() => {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = originalText;
+    });
+}
+
+// Delete student function
+function deleteStudent(studentId, studentName) {
+  if (!firebase.firestore || !studentId) {
+    showErrorMessage('Unable to delete student: Database not available');
+    return;
+  }
+  
+  // Show confirmation dialog
+  if (!confirm(`Are you sure you want to delete ${studentName}'s profile? This action cannot be undone and will delete all their data including resume sessions and interview records.`)) {
+    return;
+  }
+  
+  const db = firebase.firestore();
+  
+  // Show loading state
+  showMessage('Deleting student profile...', 'info');
+  
+  // Delete user profile
+  db.collection('users').doc(studentId).delete()
+    .then(() => {
+      // Remove from local state
+      authState.students = authState.students.filter(s => s.uid !== studentId);
+      authState.sessions = authState.sessions.filter(s => s.userId !== studentId);
+      authState.interviews = authState.interviews.filter(i => i.userId !== studentId);
+      
+      // Refresh displays
+      displayStudents(authState.students);
+      displaySessions(authState.sessions);
+      displayInterviews(authState.interviews);
+      updateStatsDisplay();
+      
+      showSuccessMessage(`${studentName}'s profile has been deleted successfully.`);
+    })
+    .catch(error => {
+      console.error('Error deleting student:', error);
+      showErrorMessage(`Error deleting student: ${error.message}`);
+    });
+}
+
 // UI Helpers
 function updateUserProfileUI(user) {
   // Update UI elements showing user info (similar to student portal)
@@ -691,6 +2196,821 @@ function showSuccessMessage(message, duration = 5000) {
   }
 }
 
+function showMessage(message, type = 'info', duration = 5000) {
+  const errorContainer = document.getElementById('error-messages');
+  if (errorContainer) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    messageDiv.innerHTML = `
+      ${message}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    errorContainer.appendChild(messageDiv);
+    
+    // Auto-dismiss after duration
+    setTimeout(() => {
+      messageDiv.classList.remove('show');
+      setTimeout(() => messageDiv.remove(), 500);
+    }, duration);
+  }
+}
+
+// Session and Interview detail functions (keep existing ones)
+function showSessionDetails(sessionId) {
+  const modal = new bootstrap.Modal(document.getElementById('session-details-modal'));
+  modal.show();
+  
+  const contentContainer = document.getElementById('session-details-content');
+  contentContainer.innerHTML = `
+    <div class="text-center">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p>Loading session details...</p>
+    </div>
+  `;
+  
+  fetchSessionDetails(sessionId)
+    .then(session => {
+      const student = authState.students.find(s => s.uid === session.userId);
+      const studentName = student ? student.displayName : 'Unknown Student';
+      
+      const startTime = session.start_time ? formatToIST(session.start_time) : 'N/A';
+      const endTime = session.end_time ? formatToIST(session.end_time) : 'N/A';
+      const duration = calculateDuration(session.start_time, session.end_time);
+      
+      const results = session.results || {};
+      const matchResults = results.match_results || {};
+      const matchScore = matchResults.matchScore || 'N/A';
+      const matchAnalysis = matchResults.matchAnalysis || 'No analysis available.';
+      const jobRequirements = matchResults.jobRequirements || {};
+      const parsedResume = matchResults.parsedResume || {};
+      const keyStrengths = matchResults.keyStrengths || [];
+      const skillGaps = matchResults.skillGaps || [];
+      const resumeImprovements = matchResults.resumeImprovements || [];
+      const prepPlan = matchResults.prep_plan || {};
+      
+      const companyName = extractCompanyName(session.jobDescription);
+      
+      let html = `
+        <div class="session-details-header mb-4">
+          <div class="row">
+            <div class="col-md-8">
+              <h4>${studentName} - Resume Analysis</h4>
+              <p class="text-muted mb-2">${companyName}</p>
+              <div class="session-meta">
+                <span class="badge bg-primary me-2">Session ID: ${session.id}</span>
+                <span class="badge ${session.status === 'completed' ? 'bg-success' : session.status === 'failed' ? 'bg-danger' : 'bg-warning'}">${session.status || 'N/A'}</span>
+              </div>
+            </div>
+            <div class="col-md-4 text-end">
+              <div class="score-display-large">
+                <div class="score-circle-large ${matchScore >= 70 ? 'score-high' : matchScore >= 40 ? 'score-medium' : 'score-low'}">
+                  <span class="score-value-large">${matchScore}</span>
+                  <span class="score-suffix-large">%</span>
+                </div>
+                <div class="score-label-large">Match Score</div>
+              </div>
+            </div>
+          </div>
+          <div class="row mt-3">
+            <div class="col-md-4">
+              <strong>Start Time:</strong> ${startTime}
+            </div>
+            <div class="col-md-4">
+              <strong>End Time:</strong> ${endTime}
+            </div>
+            <div class="col-md-4">
+              <strong>Duration:</strong> ${duration}
+            </div>
+          </div>
+        </div>
+        
+        <!-- Job Description and Requirements -->
+        <div class="section-container mb-4">
+          <h5><i class="fas fa-briefcase me-2"></i>Job Description & Requirements</h5>
+          <div class="job-description-container">
+            <div class="job-description-text">
+              ${session.jobDescription ? session.jobDescription.substring(0, 500) + (session.jobDescription.length > 500 ? '...' : '') : 'No job description available'}
+            </div>
+            ${session.jobDescription && session.jobDescription.length > 500 ? `
+              <button class="btn btn-sm btn-outline-secondary mt-2" onclick="this.previousElementSibling.textContent='${session.jobDescription.replace(/'/g, "\\'")}'; this.style.display='none';">
+                Show Full Description
+              </button>
+            ` : ''}
+          </div>
+          
+          ${Object.keys(jobRequirements).length > 0 ? `
+            <div class="job-requirements mt-3">
+              <h6>Extracted Requirements:</h6>
+              <div class="row">
+                ${jobRequirements.jobTitle ? `
+                  <div class="col-md-6 mb-2">
+                    <strong>Position:</strong> ${jobRequirements.jobTitle}
+                  </div>
+                ` : ''}
+                ${jobRequirements.experienceLevel ? `
+                  <div class="col-md-6 mb-2">
+                    <strong>Experience:</strong> ${jobRequirements.experienceLevel}
+                  </div>
+                ` : ''}
+                ${jobRequirements.educationNeeded ? `
+                  <div class="col-md-12 mb-2">
+                    <strong>Education:</strong> ${jobRequirements.educationNeeded}
+                  </div>
+                ` : ''}
+              </div>
+              ${jobRequirements.requiredSkills && jobRequirements.requiredSkills.length > 0 ? `
+                <div class="required-skills-section mt-2">
+                  <strong>Required Skills:</strong>
+                  <div class="skills-container mt-1">
+                    ${jobRequirements.requiredSkills.map(skill => 
+                      `<span class="skill-tag-detailed">${skill}</span>`
+                    ).join('')}
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          ` : ''}
+        </div>
+        
+        <!-- Parsed Resume Information -->
+        ${Object.keys(parsedResume).length > 0 ? `
+          <div class="section-container mb-4">
+            <h5><i class="fas fa-user me-2"></i>Candidate Profile</h5>
+            <div class="row">
+              ${parsedResume.name ? `
+                <div class="col-md-6 mb-2">
+                  <strong>Name:</strong> ${parsedResume.name}
+                </div>
+              ` : ''}
+              ${parsedResume.email ? `
+                <div class="col-md-6 mb-2">
+                  <strong>Email:</strong> ${parsedResume.email}
+                </div>
+              ` : ''}
+              ${parsedResume.phoneNumber ? `
+                <div class="col-md-6 mb-2">
+                  <strong>Phone:</strong> ${parsedResume.phoneNumber}
+                </div>
+              ` : ''}
+              ${parsedResume.location ? `
+                <div class="col-md-6 mb-2">
+                  <strong>Location:</strong> ${parsedResume.location}
+                </div>
+              ` : ''}
+              ${parsedResume.yearsOfExperience ? `
+                <div class="col-md-6 mb-2">
+                  <strong>Experience:</strong> ${parsedResume.yearsOfExperience}
+                </div>
+              ` : ''}
+              ${parsedResume.currentPosition ? `
+                <div class="col-md-6 mb-2">
+                  <strong>Current Position:</strong> ${parsedResume.currentPosition}
+                </div>
+              ` : ''}
+            </div>
+            
+            ${parsedResume.education && parsedResume.education.length > 0 ? `
+              <div class="education-section mt-3">
+                <strong>Education:</strong>
+                <ul class="list-unstyled mt-1">
+                  ${parsedResume.education.map(edu => `<li>• ${edu}</li>`).join('')}
+                </ul>
+              </div>
+            ` : ''}
+            
+            ${parsedResume.technicalSkills && parsedResume.technicalSkills.length > 0 ? `
+              <div class="technical-skills-section mt-3">
+                <strong>Technical Skills:</strong>
+                <div class="skills-container mt-1">
+                  ${parsedResume.technicalSkills.map(skill => 
+                    `<span class="skill-tag-detailed">${skill}</span>`
+                  ).join('')}
+                </div>
+              </div>
+            ` : ''}
+            
+            ${parsedResume.companiesWorkedAt && parsedResume.companiesWorkedAt.length > 0 ? `
+              <div class="companies-section mt-3">
+                <strong>Companies Worked At:</strong>
+                <ul class="list-unstyled mt-1">
+                  ${parsedResume.companiesWorkedAt.map(company => `<li>• ${company}</li>`).join('')}
+                </ul>
+              </div>
+            ` : ''}
+            
+            ${parsedResume.projects && parsedResume.projects.length > 0 ? `
+              <div class="projects-section mt-3">
+                <strong>Projects:</strong>
+                <ul class="list-unstyled mt-1">
+                  ${parsedResume.projects.map(project => `<li>• ${project}</li>`).join('')}
+                </ul>
+              </div>
+            ` : ''}
+          </div>
+        ` : ''}
+        
+        <!-- Match Analysis -->
+        ${matchAnalysis ? `
+          <div class="section-container mb-4">
+            <h5><i class="fas fa-chart-line me-2"></i>Match Analysis</h5>
+            <div class="analysis-content-detailed">
+              ${matchAnalysis}
+            </div>
+          </div>
+        ` : ''}
+        
+        <!-- Detailed Strengths and Gaps -->
+        <div class="row mb-4">
+          <div class="col-lg-6">
+            <div class="section-container">
+              <h5 class="text-success"><i class="fas fa-check-circle me-2"></i>Key Strengths</h5>
+              ${keyStrengths.length > 0 ? `
+                <div class="strengths-detailed">
+                  ${keyStrengths.map(strength => `
+                    <div class="strength-item-detailed">
+                      <h6 class="strength-title">${strength.strength || 'Strength not specified'}</h6>
+                      <p class="strength-relevance">${strength.relevance || 'No relevance provided'}</p>
+                      ${strength.howToEmphasize ? `
+                        <div class="strength-emphasis-detailed">
+                          <strong>How to emphasize:</strong> ${strength.howToEmphasize}
+                        </div>
+                      ` : ''}
+                    </div>
+                  `).join('')}
+                </div>
+              ` : `
+                <p class="text-muted">No key strengths identified in this analysis.</p>
+              `}
+            </div>
+          </div>
+          
+          <div class="col-lg-6">
+            <div class="section-container">
+              <h5 class="text-warning"><i class="fas fa-exclamation-triangle me-2"></i>Skill Gaps</h5>
+              ${skillGaps.length > 0 ? `
+                <div class="skill-gaps-detailed">
+                  ${skillGaps.map(gap => `
+                    <div class="skill-gap-item-detailed">
+                      <div class="gap-header-detailed">
+                        <h6 class="gap-skill">${gap.missingSkill || 'Skill not specified'}</h6>
+                        <span class="importance-badge-detailed importance-${gap.importance || 'medium'}">
+                          ${(gap.importance || 'medium').toUpperCase()} PRIORITY
+                        </span>
+                      </div>
+                      <p class="gap-suggestion">${gap.suggestion || 'No suggestion provided'}</p>
+                      ${gap.alternateSkillToHighlight ? `
+                        <div class="alternate-skill-detailed">
+                          <strong>Alternative skill to highlight:</strong> ${gap.alternateSkillToHighlight}
+                        </div>
+                      ` : ''}
+                    </div>
+                  `).join('')}
+                </div>
+              ` : `
+                <p class="text-muted">No significant skill gaps identified.</p>
+              `}
+            </div>
+          </div>
+        </div>
+      `;
+      
+      contentContainer.innerHTML = html;
+    })
+    .catch(error => {
+      console.error('Error loading session details:', error);
+      contentContainer.innerHTML = `
+        <div class="alert alert-danger">
+          <strong>Error loading session details:</strong> ${error.message}
+        </div>
+      `;
+    });
+}
+
+function showInterviewDetails(interviewId) {
+  const modal = new bootstrap.Modal(document.getElementById('interview-details-modal'));
+  modal.show();
+  
+  const contentContainer = document.getElementById('interview-details-content');
+  contentContainer.innerHTML = `
+    <div class="text-center">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p>Loading interview details...</p>
+    </div>
+  `;
+  
+  fetchInterviewDetails(interviewId)
+    .then(interview => {
+      const student = authState.students.find(s => s.uid === interview.userId);
+      const studentName = student ? student.displayName : 'Unknown Student';
+      
+      const startTime = interview.start_time ? formatToIST(interview.start_time) : 'N/A';
+      const endTime = interview.end_time ? formatToIST(interview.end_time) : 'N/A';
+      const duration = calculateDuration(interview.start_time, interview.end_time);
+      
+      const analysis = interview.analysis || {};
+      const overallScore = analysis.overallScore || null;
+      const overallAssessment = analysis.overallAssessment || '';
+      
+      const technicalAssessment = analysis.technicalAssessment || {};
+      const communicationAssessment = analysis.communicationAssessment || {};
+      const behavioralAssessment = analysis.behavioralAssessment || {};
+      const keyImprovementAreas = analysis.keyImprovementAreas || [];
+      
+      const conversation = interview.conversation || [];
+      const questionCount = conversation.filter(msg => msg.role === 'assistant').length;
+      
+      const getScoreClass = (score) => {
+        if (score === null) return 'score-neutral';
+        if (score >= 80) return 'score-excellent';
+        if (score >= 65) return 'score-good';
+        if (score >= 45) return 'score-average';
+        return 'score-poor';
+      };
+      
+      let html = `
+        <div class="interview-details-header mb-4">
+          <div class="row">
+            <div class="col-md-8">
+              <h4>${studentName} - Mock Interview</h4>
+              <p class="text-muted mb-2">Interview Type: ${interview.interviewType || 'General'}</p>
+              <div class="interview-meta">
+                <span class="badge bg-primary me-2">Interview ID: ${interview.id}</span>
+                <span class="badge ${interview.status === 'completed' ? 'bg-success' : interview.status === 'failed' ? 'bg-danger' : interview.status === 'active' ? 'bg-info' : 'bg-warning'}">${interview.status || 'N/A'}</span>
+              </div>
+            </div>
+            <div class="col-md-4 text-end">
+              <div class="score-display-large">
+                <div class="score-circle-large ${getScoreClass(overallScore)}">
+                  <span class="score-value-large">${overallScore !== null ? overallScore : 'N/A'}</span>
+                  <span class="score-suffix-large">${overallScore !== null ? '%' : ''}</span>
+                </div>
+                <div class="score-label-large">Overall Score</div>
+              </div>
+            </div>
+          </div>
+          <div class="row mt-3">
+            <div class="col-md-3">
+              <strong>Start Time:</strong> ${startTime}
+            </div>
+            <div class="col-md-3">
+              <strong>End Time:</strong> ${endTime}
+            </div>
+            <div class="col-md-3">
+              <strong>Duration:</strong> ${duration}
+            </div>
+            <div class="col-md-3">
+              <strong>Questions:</strong> ${questionCount}
+            </div>
+          </div>
+        </div>
+        
+        ${interview.status === 'completed' && analysis ? `
+          <!-- Overall Assessment -->
+          ${overallAssessment ? `
+            <div class="section-container mb-4">
+              <h5><i class="fas fa-clipboard-check me-2"></i>Overall Assessment</h5>
+              <div class="assessment-content-detailed">
+                ${overallAssessment}
+              </div>
+            </div>
+          ` : ''}
+          
+          <!-- Detailed Performance Analysis -->
+          <div class="performance-analysis-detailed mb-4">
+            <h5><i class="fas fa-chart-bar me-2"></i>Performance Analysis</h5>
+            <div class="row">
+              <!-- Technical Assessment -->
+              <div class="col-lg-4 mb-4">
+                <div class="assessment-card-detailed technical-card">
+                  <div class="assessment-header-detailed">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <h6><i class="fas fa-code me-2"></i>Technical Assessment</h6>
+                      <div class="score-badge-large ${getScoreClass(technicalAssessment.score)}">
+                        ${technicalAssessment.score !== null && technicalAssessment.score !== undefined ? technicalAssessment.score + '%' : 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="assessment-content-detailed">
+                    ${technicalAssessment.feedback ? `
+                      <div class="feedback-section-detailed mb-3">
+                        <h6>Feedback</h6>
+                        <p>${technicalAssessment.feedback}</p>
+                      </div>
+                    ` : ''}
+                    
+                    ${technicalAssessment.strengths && technicalAssessment.strengths.length > 0 ? `
+                      <div class="strengths-section-detailed mb-3">
+                        <h6 class="text-success"><i class="fas fa-plus-circle me-1"></i>Strengths</h6>
+                        <ul class="strength-list-detailed">
+                          ${technicalAssessment.strengths.map(strength => `<li>${strength}</li>`).join('')}
+                        </ul>
+                      </div>
+                    ` : ''}
+                    
+                    ${technicalAssessment.weaknesses && technicalAssessment.weaknesses.length > 0 ? `
+                      <div class="weaknesses-section-detailed">
+                        <h6 class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Areas for Improvement</h6>
+                        <ul class="weakness-list-detailed">
+                          ${technicalAssessment.weaknesses.map(weakness => `<li>${weakness}</li>`).join('')}
+                        </ul>
+                      </div>
+                    ` : ''}
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Communication Assessment -->
+              <div class="col-lg-4 mb-4">
+                <div class="assessment-card-detailed communication-card">
+                  <div class="assessment-header-detailed">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <h6><i class="fas fa-comments me-2"></i>Communication Assessment</h6>
+                      <div class="score-badge-large ${getScoreClass(communicationAssessment.score)}">
+                        ${communicationAssessment.score !== null && communicationAssessment.score !== undefined ? communicationAssessment.score + '%' : 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="assessment-content-detailed">
+                    ${communicationAssessment.feedback ? `
+                      <div class="feedback-section-detailed mb-3">
+                        <h6>Feedback</h6>
+                        <p>${communicationAssessment.feedback}</p>
+                      </div>
+                    ` : ''}
+                    
+                    ${communicationAssessment.strengths && communicationAssessment.strengths.length > 0 ? `
+                      <div class="strengths-section-detailed mb-3">
+                        <h6 class="text-success"><i class="fas fa-plus-circle me-1"></i>Strengths</h6>
+                        <ul class="strength-list-detailed">
+                          ${communicationAssessment.strengths.map(strength => `<li>${strength}</li>`).join('')}
+                        </ul>
+                      </div>
+                    ` : ''}
+                    
+                    ${communicationAssessment.weaknesses && communicationAssessment.weaknesses.length > 0 ? `
+                      <div class="weaknesses-section-detailed">
+                        <h6 class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Areas for Improvement</h6>
+                        <ul class="weakness-list-detailed">
+                          ${communicationAssessment.weaknesses.map(weakness => `<li>${weakness}</li>`).join('')}
+                        </ul>
+                      </div>
+                    ` : ''}
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Behavioral Assessment -->
+              <div class="col-lg-4 mb-4">
+                <div class="assessment-card-detailed behavioral-card">
+                  <div class="assessment-header-detailed">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <h6><i class="fas fa-user-friends me-2"></i>Behavioral Assessment</h6>
+                      <div class="score-badge-large ${getScoreClass(behavioralAssessment.score)}">
+                        ${behavioralAssessment.score !== null && behavioralAssessment.score !== undefined ? behavioralAssessment.score + '%' : 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="assessment-content-detailed">
+                    ${behavioralAssessment.feedback ? `
+                      <div class="feedback-section-detailed mb-3">
+                        <h6>Feedback</h6>
+                        <p>${behavioralAssessment.feedback}</p>
+                      </div>
+                    ` : ''}
+                    
+                    ${behavioralAssessment.strengths && behavioralAssessment.strengths.length > 0 ? `
+                      <div class="strengths-section-detailed mb-3">
+                        <h6 class="text-success"><i class="fas fa-plus-circle me-1"></i>Strengths</h6>
+                        <ul class="strength-list-detailed">
+                          ${behavioralAssessment.strengths.map(strength => `<li>${strength}</li>`).join('')}
+                        </ul>
+                      </div>
+                    ` : ''}
+                    
+                    ${behavioralAssessment.weaknesses && behavioralAssessment.weaknesses.length > 0 ? `
+                      <div class="weaknesses-section-detailed">
+                        <h6 class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>Areas for Improvement</h6>
+                        <ul class="weakness-list-detailed">
+                          ${behavioralAssessment.weaknesses.map(weakness => `<li>${weakness}</li>`).join('')}
+                        </ul>
+                      </div>
+                    ` : ''}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Key Improvement Areas -->
+          ${keyImprovementAreas.length > 0 ? `
+            <div class="improvement-areas-detailed mb-4">
+              <h5><i class="fas fa-lightbulb me-2"></i>Key Improvement Areas</h5>
+              <div class="row">
+                ${keyImprovementAreas.map((area, index) => `
+                  <div class="col-lg-6 mb-3">
+                    <div class="improvement-card-detailed">
+                      <div class="improvement-header-detailed">
+                        <div class="improvement-number-detailed">${index + 1}</div>
+                        <h6 class="improvement-title-detailed">${area.area || 'Area not specified'}</h6>
+                      </div>
+                      <div class="improvement-content-detailed">
+                        ${area.recommendation ? `
+                          <div class="improvement-recommendation-detailed mb-2">
+                            <strong>Recommendation:</strong>
+                            <p>${area.recommendation}</p>
+                          </div>
+                        ` : ''}
+                        ${area.practiceExercise ? `
+                          <div class="improvement-exercise-detailed">
+                            <strong>Practice Exercise:</strong>
+                            <p>${area.practiceExercise}</p>
+                          </div>
+                        ` : ''}
+                      </div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+          
+          <!-- Interview Conversation -->
+          ${conversation.length > 0 ? `
+            <div class="conversation-section mb-4">
+              <h5><i class="fas fa-comments me-2"></i>Interview Conversation</h5>
+              <div class="conversation-container-detailed">
+                ${conversation.map((message, index) => {
+                  const isInterviewer = message.role === 'assistant';
+                  return `
+                    <div class="conversation-message ${isInterviewer ? 'interviewer-message' : 'student-message'}">
+                      <div class="message-header">
+                        <div class="message-speaker">
+                          <i class="${isInterviewer ? 'fas fa-robot' : 'fas fa-user'} me-2"></i>
+                          ${isInterviewer ? 'Interviewer' : studentName}
+                        </div>
+                        <div class="message-number">#${index + 1}</div>
+                      </div>
+                      <div class="message-content">
+                        ${message.content || 'No content'}
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          ` : ''}
+        ` : `
+          <div class="interview-status-message-detailed">
+            <div class="alert alert-info">
+              <i class="fas fa-info-circle me-2"></i>
+              ${interview.status === 'active' ? 'Interview is currently in progress.' : 
+                interview.status === 'failed' ? 'Interview failed to complete.' : 
+                'Interview analysis not yet available.'}
+            </div>
+          </div>
+        `}
+      `;
+      
+      contentContainer.innerHTML = html;
+    })
+    .catch(error => {
+      console.error('Error loading interview details:', error);
+      contentContainer.innerHTML = `
+        <div class="alert alert-danger">
+          <strong>Error loading interview details:</strong> ${error.message}
+        </div>
+      `;
+    });
+}
+
+// Search/filter functions
+function filterStudents(searchText) {
+  if (!authState.students || authState.students.length === 0) return;
+
+  searchText = searchText.toLowerCase().trim();
+
+  // If search text is empty, display all students
+  if (!searchText) {
+    displayStudents(authState.students);
+    return;
+  }
+
+  // Filter students based on search text
+  const filteredStudents = authState.students.filter(student => {
+    return (
+      (student.displayName && student.displayName.toLowerCase().includes(searchText)) ||
+      (student.email && student.email.toLowerCase().includes(searchText)) ||
+      (student.collegeId && student.collegeId.toLowerCase().includes(searchText)) ||
+      (student.deptId && student.deptId.toLowerCase().includes(searchText)) ||
+      (student.sectionId && student.sectionId.toLowerCase().includes(searchText))
+    );
+  });
+
+  displayStudents(filteredStudents);
+}
+
+function filterSessions(searchText) {
+  if (!authState.sessions || authState.sessions.length === 0) return;
+
+  searchText = searchText.toLowerCase().trim();
+
+  // If search text is empty, display all sessions
+  if (!searchText) {
+    displaySessions(authState.sessions);
+    return;
+  }
+
+  // Filter sessions based on search text
+  const filteredSessions = authState.sessions.filter(session => {
+    const student = authState.students.find(s => s.uid === session.userId);
+    const studentName = student ? student.displayName : '';
+    const companyName = extractCompanyName(session.jobDescription);
+    
+    return (
+      (studentName && studentName.toLowerCase().includes(searchText)) ||
+      (session.id && session.id.toLowerCase().includes(searchText)) ||
+      (session.status && session.status.toLowerCase().includes(searchText)) ||
+      (companyName && companyName.toLowerCase().includes(searchText))
+    );
+  });
+
+  displaySessions(filteredSessions);
+}
+
+function filterInterviews(searchText) {
+  if (!authState.interviews || authState.interviews.length === 0) return;
+
+  searchText = searchText.toLowerCase().trim();
+
+  // If search text is empty, display all interviews
+  if (!searchText) {
+    displayInterviews(authState.interviews);
+    return;
+  }
+
+  // Filter interviews based on search text
+  const filteredInterviews = authState.interviews.filter(interview => {
+    const student = authState.students.find(s => s.uid === interview.userId);
+    const studentName = student ? student.displayName : '';
+    const companyName = extractCompanyName(interview.jobDescription) || interview.interviewType || '';
+    
+    return (
+      (studentName && studentName.toLowerCase().includes(searchText)) ||
+      (interview.id && interview.id.toLowerCase().includes(searchText)) ||
+      (interview.status && interview.status.toLowerCase().includes(searchText)) ||
+      (interview.interviewType && interview.interviewType.toLowerCase().includes(searchText)) ||
+      (companyName && companyName.toLowerCase().includes(searchText))
+    );
+  });
+
+  displayInterviews(filteredInterviews);
+}
+
+// Update stats display
+function updateStatsDisplay() {
+  document.getElementById('total-students-count').textContent = authState.students.length;
+  document.getElementById('total-sessions-count').textContent = authState.sessions.length;
+  document.getElementById('total-interviews-count').textContent = authState.interviews.length;
+}
+
+// Dashboard initialization function
+function initializeDashboard() {
+  console.log('Initializing teacher dashboard...');
+  
+  // Load students data first, then sessions and interviews
+  refreshStudentData()
+      .then(() => {
+          // Update stats display
+          updateStatsDisplay();
+          
+          // Set up real-time listener for student changes
+          if (!studentsListener) {
+              studentsListener = setupStudentsListener();
+          }
+      })
+      .catch(error => {
+          console.error('Error initializing dashboard:', error);
+          showErrorMessage(`Error loading dashboard data: ${error.message}`);
+      });
+}
+
+function refreshStudentData() {
+  const loadingMessage = `
+    <tr><td colspan="6" class="text-center">
+      <div class="spinner-border spinner-border-sm text-primary" role="status"></div> Loading students...
+    </td></tr>
+  `;
+  document.getElementById('students-table-body').innerHTML = loadingMessage;
+  
+  return fetchStudents()
+    .then(students => {
+      displayStudents(students);
+      
+      // Now fetch sessions and interviews
+      if (students.length > 0) {
+        const studentIds = students.map(student => student.uid);
+        return Promise.all([
+          fetchSessionsForStudents(studentIds),
+          fetchInterviewsForStudents(studentIds)
+        ]);
+      } else {
+        return [[], []];
+      }
+    })
+    .then(([sessions, interviews]) => {
+      displaySessions(sessions);
+      displayInterviews(interviews);
+      updateStatsDisplay();
+      return { students: authState.students, sessions, interviews };
+    })
+    .catch(error => {
+      console.error('Error refreshing student data:', error);
+      showErrorMessage(`Error loading student data: ${error.message}`);
+      
+      // Show error message in tables
+      const errorRow = `<tr><td colspan="6" class="text-center text-danger">Error loading data: ${error.message}</td></tr>`;
+      document.getElementById('students-table-body').innerHTML = errorRow;
+      
+      throw error;
+    });
+}
+
+function refreshSessionData() {
+  if (!authState.students || authState.students.length === 0) {
+    return Promise.resolve([]);
+  }
+  
+  const container = document.getElementById('sessions-grouped-container');
+  if (container) {
+    container.innerHTML = `
+      <div class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2">Loading sessions...</p>
+      </div>
+    `;
+  }
+  
+  const studentIds = authState.students.map(student => student.uid);
+  return fetchSessionsForStudents(studentIds)
+    .then(sessions => {
+      displaySessions(sessions);
+      updateStatsDisplay();
+      return sessions;
+    })
+    .catch(error => {
+      console.error('Error refreshing session data:', error);
+      if (container) {
+        container.innerHTML = `
+          <div class="alert alert-danger">
+            Error loading sessions: ${error.message}
+          </div>
+        `;
+      }
+      showErrorMessage(`Error loading session data: ${error.message}`);
+      throw error;
+    });
+}
+
+function refreshInterviewData() {
+  if (!authState.students || authState.students.length === 0) {
+    return Promise.resolve([]);
+  }
+  
+  const container = document.getElementById('interviews-grouped-container');
+  if (container) {
+    container.innerHTML = `
+      <div class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2">Loading interviews...</p>
+      </div>
+    `;
+  }
+  
+  const studentIds = authState.students.map(student => student.uid);
+  return fetchInterviewsForStudents(studentIds)
+    .then(interviews => {
+      displayInterviews(interviews);
+      updateStatsDisplay();
+      return interviews;
+    })
+    .catch(error => {
+      console.error('Error refreshing interview data:', error);
+      if (container) {
+        container.innerHTML = `
+          <div class="alert alert-danger">
+            Error loading interviews: ${error.message}
+          </div>
+        `;
+      }
+      showErrorMessage(`Error loading interview data: ${error.message}`);
+      throw error;
+    });
+}
+
 // Event listeners attachment
 function attachAuthEventListeners() {
   // Handle login/registration page events
@@ -744,7 +3064,7 @@ function attachAuthEventListeners() {
     });
     
     // Tab switching
-  document.getElementById('signin-tab')?.addEventListener('click', function() {
+    document.getElementById('signin-tab')?.addEventListener('click', function() {
       document.getElementById('signin-form').reset();
     });
     
@@ -959,6 +3279,50 @@ function attachAuthEventListeners() {
       }
     });
     
+    // Enhanced Student Action Event Listeners
+    document.addEventListener('click', function(e) {
+      // Download student report button
+      if (e.target.classList.contains('download-report-btn') || e.target.closest('.download-report-btn')) {
+        const btn = e.target.classList.contains('download-report-btn') ? e.target : e.target.closest('.download-report-btn');
+        const studentId = btn.getAttribute('data-id');
+        const studentName = btn.getAttribute('data-name');
+        
+        if (studentId && studentName) {
+          downloadStudentReport(studentId, studentName);
+        }
+      }
+      
+      // Edit student button
+      if (e.target.classList.contains('edit-student-btn') || e.target.closest('.edit-student-btn')) {
+        const btn = e.target.classList.contains('edit-student-btn') ? e.target : e.target.closest('.edit-student-btn');
+        const studentData = {
+          name: btn.getAttribute('data-name'),
+          email: btn.getAttribute('data-email'),
+          college: btn.getAttribute('data-college'),
+          dept: btn.getAttribute('data-dept'),
+          section: btn.getAttribute('data-section')
+        };
+        editStudent(btn.getAttribute('data-id'), studentData);
+      }
+      
+      // Delete student button
+      if (e.target.classList.contains('delete-student-btn') || e.target.closest('.delete-student-btn')) {
+        const btn = e.target.classList.contains('delete-student-btn') ? e.target : e.target.closest('.delete-student-btn');
+        deleteStudent(btn.getAttribute('data-id'), btn.getAttribute('data-name'));
+      }
+      
+      // Download transcript button
+      if (e.target.classList.contains('download-transcript-btn') || e.target.closest('.download-transcript-btn')) {
+        const btn = e.target.classList.contains('download-transcript-btn') ? e.target : e.target.closest('.download-transcript-btn');
+        const interviewId = btn.getAttribute('data-id');
+        const studentName = btn.getAttribute('data-student');
+        
+        if (interviewId && studentName) {
+          downloadInterviewTranscript(interviewId, studentName);
+        }
+      }
+    });
+    
     // Student search
     document.getElementById('student-search')?.addEventListener('input', function() {
       filterStudents(this.value);
@@ -976,678 +3340,187 @@ function attachAuthEventListeners() {
   }
 }
 
-// Dashboard initialization function
-function initializeDashboard() {
-  console.log('Initializing teacher dashboard...');
-  
-  // Load students data first, then sessions and interviews
-  refreshStudentData()
-      .then(() => {
-          // Update stats display
-          updateStatsDisplay();
-          
-          // Set up real-time listener for student changes
-          if (!studentsListener) {
-              studentsListener = setupStudentsListener();
-          }
-      })
-      .catch(error => {
-          console.error('Error initializing dashboard:', error);
-          showErrorMessage(`Error loading dashboard data: ${error.message}`);
-      });
+
+const cleanDisplayStyles = `
+<style>
+/* Clean Session Cards */
+.session-detail-card-clean {
+  border: 1px solid #e3e6f0;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  background: #fff;
+  overflow: hidden;
 }
 
-function refreshStudentData() {
-  const loadingRow = `<tr><td colspan="8" class="text-center"><div class="spinner-border spinner-border-sm text-primary" role="status"></div> Loading students...</td></tr>`;
-  document.getElementById('students-table-body').innerHTML = loadingRow;
-  
-  return fetchStudents()
-    .then(students => {
-      displayStudents(students);
-      
-      // Now fetch sessions and interviews
-      if (students.length > 0) {
-        const studentIds = students.map(student => student.uid);
-        return Promise.all([
-          fetchSessionsForStudents(studentIds),
-          fetchInterviewsForStudents(studentIds)
-        ]);
-      } else {
-        return [[], []];
-      }
-    })
-    .then(([sessions, interviews]) => {
-      displaySessions(sessions);
-      displayInterviews(interviews);
-      updateStatsDisplay();
-      return { students: authState.students, sessions, interviews };
-    })
-    .catch(error => {
-      console.error('Error refreshing student data:', error);
-      showErrorMessage(`Error loading student data: ${error.message}`);
-      
-      // Show error message in tables
-      const errorRow = `<tr><td colspan="8" class="text-center text-danger">Error loading data: ${error.message}</td></tr>`;
-      document.getElementById('students-table-body').innerHTML = errorRow;
-      document.getElementById('sessions-table-body').innerHTML = errorRow.replace('colspan="8"', 'colspan="6"');
-      document.getElementById('interviews-table-body').innerHTML = errorRow.replace('colspan="8"', 'colspan="7"');
-      
-      throw error;
-    });
+.session-header-clean {
+  background: linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%);
+  padding: 15px;
+  border-bottom: 1px solid #e3e6f0;
 }
 
-function refreshSessionData() {
-  if (!authState.students || authState.students.length === 0) {
-    return Promise.resolve([]);
+/* Clean Interview Cards */
+.interview-detail-card-clean {
+  border: 1px solid #e3e6f0;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.interview-header-clean {
+  background: linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%);
+  padding: 15px;
+  border-bottom: 1px solid #e3e6f0;
+}
+
+/* Job Requirements Summary */
+.job-requirements-summary {
+  background: #f8f9fa;
+  padding: 12px 15px;
+  border-top: 1px solid #e3e6f0;
+}
+
+.requirement-item {
+  font-size: 0.9rem;
+  margin-bottom: 5px;
+}
+
+/* Clean Skills Tags */
+.skills-tags-clean {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.skill-tag-clean {
+  display: inline-block;
+  background: linear-gradient(135deg, #007bff, #0056b3);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.more-skills {
+  display: inline-block;
+  background: #6c757d;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+/* Clean Score Badges */
+.scores-summary-clean {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 6px;
+  padding: 8px;
+  border: 1px solid #e3e6f0;
+}
+
+.score-badge-clean {
+  display: block;
+  padding: 4px 6px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.score-label-clean {
+  font-size: 0.7rem;
+  color: #6c757d;
+  display: block;
+}
+
+.score-technical { background-color: #e3f2fd; color: #1976d2; }
+.score-communication { background-color: #e8f5e8; color: #388e3c; }
+.score-behavioral { background-color: #fff3e0; color: #f57c00; }
+
+/* Responsive adjustments for clean display */
+@media (max-width: 768px) {
+  .session-header-clean,
+  .interview-header-clean {
+    padding: 12px;
   }
   
-  const loadingRow = `<tr><td colspan="6" class="text-center"><div class="spinner-border spinner-border-sm text-primary" role="status"></div> Loading sessions...</td></tr>`;
-  document.getElementById('sessions-table-body').innerHTML = loadingRow;
-  
-  const studentIds = authState.students.map(student => student.uid);
-  return fetchSessionsForStudents(studentIds)
-    .then(sessions => {
-      displaySessions(sessions);
-      updateStatsDisplay();
-      return sessions;
-    })
-    .catch(error => {
-      console.error('Error refreshing session data:', error);
-      const errorRow = `<tr><td colspan="6" class="text-center text-danger">Error loading sessions: ${error.message}</td></tr>`;
-      document.getElementById('sessions-table-body').innerHTML = errorRow;
-      showErrorMessage(`Error loading session data: ${error.message}`);
-      throw error;
-    });
-}
-
-function refreshInterviewData() {
-  if (!authState.students || authState.students.length === 0) {
-    return Promise.resolve([]);
+  .interview-actions {
+    flex-direction: column;
+    gap: 5px;
   }
   
-  const loadingRow = `<tr><td colspan="7" class="text-center"><div class="spinner-border spinner-border-sm text-primary" role="status"></div> Loading interviews...</td></tr>`;
-  document.getElementById('interviews-table-body').innerHTML = loadingRow;
-  
-  const studentIds = authState.students.map(student => student.uid);
-  return fetchInterviewsForStudents(studentIds)
-    .then(interviews => {
-      displayInterviews(interviews);
-      updateStatsDisplay();
-      return interviews;
-    })
-    .catch(error => {
-      console.error('Error refreshing interview data:', error);
-      const errorRow = `<tr><td colspan="7" class="text-center text-danger">Error loading interviews: ${error.message}</td></tr>`;
-      document.getElementById('interviews-table-body').innerHTML = errorRow;
-      showErrorMessage(`Error loading interview data: ${error.message}`);
-      throw error;
-    });
-}
-
-// Display functions
-function displayStudents(students) {
-  const tableBody = document.getElementById('students-table-body');
-  if (!tableBody) return;
-  
-  if (!students || students.length === 0) {
-      tableBody.innerHTML = `
-          <tr>
-              <td colspan="8" class="text-center py-4">
-                  <div class="alert alert-info mb-0">
-                      <i class="fas fa-info-circle me-2"></i>
-                      No students found matching your criteria.
-                      <br><small class="mt-2 d-block">Students will appear here when they register with matching College ID, Department ID, or Section ID.</small>
-                  </div>
-              </td>
-          </tr>`;
-      return;
+  .scores-summary-clean .col-3 {
+    margin-bottom: 8px;
   }
   
-  let html = '';
-  students.forEach(student => {
-    const studentSessions = authState.sessions.filter(session => session.userId === student.uid);
-    const studentInterviews = authState.interviews.filter(interview => interview.userId === student.uid);
-    
-    html += `
-      <tr>
-        <td>${student.displayName || 'N/A'}</td>
-        <td>${student.email || 'N/A'}</td>
-        <td>${student.collegeId || '-'}</td>
-        <td>${student.deptId || '-'}</td>
-        <td>${student.sectionId || '-'}</td>
-        <td>${studentSessions.length}</td>
-        <td>${studentInterviews.length}</td>
-        <td>
-          <button class="btn btn-sm btn-outline-primary view-student-btn" data-id="${student.uid}" title="View Student Details">
-            <i class="fas fa-user"></i>
-          </button>
-        </td>
-      </tr>
-    `;
-  });
-  
-  tableBody.innerHTML = html;
-}
-
-function displaySessions(sessions) {
-  const tableBody = document.getElementById('sessions-table-body');
-  if (!tableBody) return;
-  
-  if (!sessions || sessions.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="6" class="text-center">No resume analysis sessions found.</td></tr>`;
-    return;
+  .job-requirements-summary {
+    padding: 10px 12px;
   }
   
-  // Sort sessions by date (newest first)
-  sessions.sort((a, b) => {
-    const dateA = a.start_time ? new Date(a.start_time) : new Date(0);
-    const dateB = b.start_time ? new Date(b.start_time) : new Date(0);
-    return dateB - dateA;
-  });
-  
-  let html = '';
-  sessions.forEach(session => {
-    const student = authState.students.find(s => s.uid === session.userId);
-    const studentName = student ? student.displayName : 'Unknown Student';
-    const sessionDate = session.start_time ? new Date(session.start_time).toLocaleString() : 'N/A';
-    
-    // Determine status badge class
-    let statusBadgeClass = '';
-    switch(session.status) {
-      case 'completed': statusBadgeClass = 'status-completed'; break;
-      case 'processing': statusBadgeClass = 'status-processing'; break;
-      case 'failed': statusBadgeClass = 'status-failed'; break;
-      default: statusBadgeClass = 'status-processing';
-    }
-    
-    // Get match score if available
-    const matchScore = session.results?.match_results?.matchScore || '-';
-    let scoreClass = '';
-    if (matchScore !== '-') {
-      if (matchScore >= 70) scoreClass = 'score-high';
-      else if (matchScore >= 40) scoreClass = 'score-medium';
-      else scoreClass = 'score-low';
-    }
-    
-    html += `
-      <tr>
-        <td>${studentName}</td>
-        <td>${session.id}</td>
-        <td>${sessionDate}</td>
-        <td><span class="status-badge ${statusBadgeClass}">${session.status || 'N/A'}</span></td>
-        <td>
-          ${matchScore !== '-' ? 
-            `<div class="score-indicator ${scoreClass}">${matchScore}</div>` : 
-            '-'}
-        </td>
-        <td>
-          <button class="btn btn-sm btn-outline-primary view-session-btn" data-id="${session.id}" title="View Session Details">
-            <i class="fas fa-search"></i>
-          </button>
-        </td>
-      </tr>
-    `;
-  });
-  
-  tableBody.innerHTML = html;
-}
-
-function displayInterviews(interviews) {
-  const tableBody = document.getElementById('interviews-table-body');
-  if (!tableBody) return;
-  
-  if (!interviews || interviews.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="7" class="text-center">No mock interviews found.</td></tr>`;
-    return;
+  .requirement-item {
+    font-size: 0.8rem;
   }
   
-  // Sort interviews by date (newest first)
-  interviews.sort((a, b) => {
-    const dateA = a.start_time ? new Date(a.start_time) : new Date(0);
-    const dateB = b.start_time ? new Date(b.start_time) : new Date(0);
-    return dateB - dateA;
+  .skill-tag-clean {
+    font-size: 0.7rem;
+    padding: 1px 6px;
+  }
+}
+
+/* No scores message */
+.no-scores-message {
+  text-align: center;
+  padding: 20px;
+  color: #6c757d;
+  font-style: italic;
+}
+</style>
+`;
+
+// Inject the clean display styles
+if (!document.getElementById('clean-display-styles')) {
+  const styleElement = document.createElement('div');
+  styleElement.id = 'clean-display-styles';
+  styleElement.innerHTML = cleanDisplayStyles;
+  document.head.appendChild(styleElement);
+}
+
+// Initialize jsPDF when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+  loadJsPDF().catch(error => {
+    console.error('Error loading jsPDF:', error);
   });
-  
-  let html = '';
-  interviews.forEach(interview => {
-    const student = authState.students.find(s => s.uid === interview.userId);
-    const studentName = student ? student.displayName : 'Unknown Student';
-    const interviewDate = interview.start_time ? new Date(interview.start_time).toLocaleString() : 'N/A';
-    
-    // Determine status badge class
-    let statusBadgeClass = '';
-    switch(interview.status) {
-      case 'completed': statusBadgeClass = 'status-completed'; break;
-      case 'active': statusBadgeClass = 'status-active'; break;
-      case 'failed': statusBadgeClass = 'status-failed'; break;
-      default: statusBadgeClass = 'status-processing';
-    }
-    
-    // Get overall score if available
-    const overallScore = interview.analysis?.overallScore || '-';
-    let scoreClass = '';
-    if (overallScore !== '-') {
-      if (overallScore >= 70) scoreClass = 'score-high';
-      else if (overallScore >= 40) scoreClass = 'score-medium';
-      else scoreClass = 'score-low';
-    }
-    
-    html += `
-      <tr>
-        <td>${studentName}</td>
-        <td>${interview.id}</td>
-        <td>${interviewDate}</td>
-        <td>${interview.interviewType || 'General'}</td>
-        <td><span class="status-badge ${statusBadgeClass}">${interview.status || 'N/A'}</span></td>
-        <td>
-          ${overallScore !== '-' ? 
-            `<div class="score-indicator ${scoreClass}">${overallScore}</div>` : 
-            '-'}
-        </td>
-        <td>
-          <button class="btn btn-sm btn-outline-primary view-interview-btn" data-id="${interview.id}" title="View Interview Details">
-            <i class="fas fa-search"></i>
-          </button>
-        </td>
-      </tr>
-    `;
-  });
-  
-  tableBody.innerHTML = html;
-}
-
-// Detail view functions
-function showSessionDetails(sessionId) {
-  // Show modal with loading state
-  const modal = new bootstrap.Modal(document.getElementById('session-details-modal'));
-  modal.show();
-  
-  const contentContainer = document.getElementById('session-details-content');
-  contentContainer.innerHTML = `
-    <div class="text-center">
-      <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">Loading...</span>
-      </div>
-      <p>Loading session details...</p>
-    </div>
-  `;
-  
-  fetchSessionDetails(sessionId)
-    .then(session => {
-      const student = authState.students.find(s => s.uid === session.userId);
-      const studentName = student ? student.displayName : 'Unknown Student';
-      
-      // Format dates
-      const startTime = session.start_time ? new Date(session.start_time).toLocaleString() : 'N/A';
-      const endTime = session.end_time ? new Date(session.end_time).toLocaleString() : 'N/A';
-      
-      // Calculate duration if both times exist
-      let duration = 'N/A';
-      if (session.start_time && session.end_time) {
-        const start = new Date(session.start_time);
-        const end = new Date(session.end_time);
-        const durationMs = end - start;
-        const minutes = Math.floor(durationMs / 60000);
-        const seconds = Math.floor((durationMs % 60000) / 1000);
-        duration = `${minutes}m ${seconds}s`;
-      }
-      
-      // Extract results data
-      const matchResults = session.results?.match_results || {};
-      const matchScore = matchResults.matchScore || 'N/A';
-      const matchAnalysis = matchResults.matchAnalysis || 'No analysis available.';
-      
-      // Format skills data
-      let strengthsHtml = '<p>No strengths identified.</p>';
-      if (matchResults.keyStrengths && matchResults.keyStrengths.length > 0) {
-        strengthsHtml = '<ul>';
-        matchResults.keyStrengths.forEach(strength => {
-          strengthsHtml += `<li><strong>${strength.strength || 'N/A'}</strong>: ${strength.relevance || 'N/A'}</li>`;
-        });
-        strengthsHtml += '</ul>';
-      }
-      
-      let gapsHtml = '<p>No skill gaps identified.</p>';
-      if (matchResults.skillGaps && matchResults.skillGaps.length > 0) {
-        gapsHtml = '<ul>';
-        matchResults.skillGaps.forEach(gap => {
-          gapsHtml += `<li><strong>${gap.missingSkill || 'N/A'}</strong> (${gap.importance || 'low'}): ${gap.suggestion || 'N/A'}</li>`;
-        });
-        gapsHtml += '</ul>';
-      }
-      
-      // Build HTML content
-      let html = `
-        <div class="row mb-4">
-          <div class="col-md-6">
-            <div class="detail-section">
-              <h5>Session Information</h5>
-              <p><strong>Student:</strong> ${studentName}</p>
-              <p><strong>Session ID:</strong> ${session.id}</p>
-              <p><strong>Status:</strong> <span class="badge ${session.status === 'completed' ? 'bg-success' : session.status === 'failed' ? 'bg-danger' : 'bg-warning'}">${session.status || 'N/A'}</span></p>
-              <p><strong>Start Time:</strong> ${startTime}</p>
-              <p><strong>End Time:</strong> ${endTime}</p>
-              <p><strong>Duration:</strong> ${duration}</p>
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="detail-section">
-              <h5>Resume Match Results</h5>
-              <div class="text-center mb-3">
-                <div class="score-indicator ${matchScore >= 70 ? 'score-high' : matchScore >= 40 ? 'score-medium' : 'score-low'}" style="width: 80px; height: 80px; font-size: 1.5rem; margin: 0 auto;">
-                  ${matchScore}
-                </div>
-                <p class="mt-2"><strong>Match Score</strong></p>
-              </div>
-              <p><strong>Analysis:</strong> ${matchAnalysis}</p>
-            </div>
-          </div>
-        </div>
-        
-        <div class="row">
-          <div class="col-md-6">
-            <div class="detail-section">
-              <h5>Key Strengths</h5>
-              ${strengthsHtml}
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="detail-section">
-              <h5>Skill Gaps</h5>
-              ${gapsHtml}
-            </div>
-          </div>
-        </div>
-      `;
-      
-      contentContainer.innerHTML = html;
-    })
-    .catch(error => {
-      console.error('Error loading session details:', error);
-      contentContainer.innerHTML = `
-        <div class="alert alert-danger">
-          <strong>Error loading session details:</strong> ${error.message}
-        </div>
-      `;
-    });
-}
-
-function showInterviewDetails(interviewId) {
-  // Show modal with loading state
-  const modal = new bootstrap.Modal(document.getElementById('interview-details-modal'));
-  modal.show();
-  
-  const contentContainer = document.getElementById('interview-details-content');
-  contentContainer.innerHTML = `
-    <div class="text-center">
-      <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">Loading...</span>
-      </div>
-      <p>Loading interview details...</p>
-    </div>
-  `;
-  
-  fetchInterviewDetails(interviewId)
-    .then(interview => {
-      const student = authState.students.find(s => s.uid === interview.userId);
-      const studentName = student ? student.displayName : 'Unknown Student';
-      
-      // Format dates
-      const startTime = interview.start_time ? new Date(interview.start_time).toLocaleString() : 'N/A';
-      const endTime = interview.end_time ? new Date(interview.end_time).toLocaleString() : 'N/A';
-      
-      // Calculate duration if both times exist
-      let duration = 'N/A';
-      if (interview.start_time && interview.end_time) {
-        const start = new Date(interview.start_time);
-        const end = new Date(interview.end_time);
-        const durationMs = end - start;
-        const minutes = Math.floor(durationMs / 60000);
-        const seconds = Math.floor((durationMs % 60000) / 1000);
-        duration = `${minutes}m ${seconds}s`;
-      }
-      
-      // Extract analysis data
-      const analysis = interview.analysis || {};
-      const overallScore = analysis.overallScore || 'N/A';
-      const overallAssessment = analysis.overallAssessment || 'No assessment available.';
-      
-      // Extract scores
-      const technicalScore = analysis.technicalAssessment?.score || 'N/A';
-      const communicationScore = analysis.communicationAssessment?.score || 'N/A';
-      const behavioralScore = analysis.behavioralAssessment?.score || 'N/A';
-      
-      // Format conversation
-      let conversationHtml = '<p>No conversation recorded.</p>';
-      if (interview.conversation && interview.conversation.length > 0) {
-        conversationHtml = '<div class="conversation-transcript">';
-        interview.conversation.forEach((msg, index) => {
-          const speaker = msg.role === 'assistant' ? 'Interviewer' : 'Student';
-          const speakerClass = msg.role === 'assistant' ? 'interviewer' : 'student';
-          
-          conversationHtml += `
-            <div class="message ${speakerClass}">
-              <div class="speaker">${speaker}</div>
-              <div class="content">${msg.content}</div>
-            </div>
-          `;
-        });
-        conversationHtml += '</div>';
-      }
-      
-      // Build HTML content
-      let html = `
-        <div class="row mb-4">
-          <div class="col-md-6">
-            <div class="detail-section">
-              <h5>Interview Information</h5>
-              <p><strong>Student:</strong> ${studentName}</p>
-              <p><strong>Interview ID:</strong> ${interview.id}</p>
-              <p><strong>Type:</strong> ${interview.interviewType || 'General'}</p>
-              <p><strong>Status:</strong> <span class="badge ${interview.status === 'completed' ? 'bg-success' : interview.status === 'failed' ? 'bg-danger' : interview.status === 'active' ? 'bg-info' : 'bg-warning'}">${interview.status || 'N/A'}</span></p>
-              <p><strong>Start Time:</strong> ${startTime}</p>
-              <p><strong>End Time:</strong> ${endTime}</p>
-              <p><strong>Duration:</strong> ${duration}</p>
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="detail-section">
-              <h5>Performance Scores</h5>
-              <div class="text-center mb-3">
-                <div class="score-indicator ${overallScore >= 70 ? 'score-high' : overallScore >= 40 ? 'score-medium' : 'score-low'}" style="width: 80px; height: 80px; font-size: 1.5rem; margin: 0 auto;">
-                  ${overallScore}
-                </div>
-                <p class="mt-2"><strong>Overall Score</strong></p>
-              </div>
-              
-              <div class="row text-center">
-                <div class="col-md-4">
-                  <div class="score-indicator ${technicalScore >= 70 ? 'score-high' : technicalScore >= 40 ? 'score-medium' : 'score-low'}" style="width: 50px; height: 50px; margin: 0 auto;">
-                    ${technicalScore}
-                  </div>
-                  <p class="mt-1"><small>Technical</small></p>
-                </div>
-                <div class="col-md-4">
-                  <div class="score-indicator ${communicationScore >= 70 ? 'score-high' : communicationScore >= 40 ? 'score-medium' : 'score-low'}" style="width: 50px; height: 50px; margin: 0 auto;">
-                    ${communicationScore}
-                  </div>
-                  <p class="mt-1"><small>Communication</small></p>
-                </div>
-                <div class="col-md-4">
-                <div class="score-indicator ${behavioralScore >= 70 ? 'score-high' : behavioralScore >= 40 ? 'score-medium' : 'score-low'}" style="width: 50px; height: 50px; margin: 0 auto;">
-                  ${behavioralScore}
-                </div>
-                <p class="mt-1"><small>Behavioral</small></p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <div class="row mb-4">
-        <div class="col-12">
-          <div class="detail-section">
-            <h5>Overall Assessment</h5>
-            <p>${overallAssessment}</p>
-          </div>
-        </div>
-      </div>
-      
-      <div class="row">
-        <div class="col-12">
-          <div class="detail-section">
-            <h5>Interview Transcript</h5>
-            ${conversationHtml}
-          </div>
-        </div>
-      </div>
-    `;
-    
-    contentContainer.innerHTML = html;
-    
-    // Add custom styling for conversation transcript
-    const style = document.createElement('style');
-    style.textContent = `
-      .conversation-transcript {
-        max-height: 300px;
-        overflow-y: auto;
-        border: 1px solid #ddd;
-        padding: 10px;
-        border-radius: 5px;
-      }
-      
-      .conversation-transcript .message {
-        margin-bottom: 10px;
-        padding: 5px;
-      }
-      
-      .conversation-transcript .speaker {
-        font-weight: bold;
-        margin-bottom: 3px;
-      }
-      
-      .conversation-transcript .interviewer .speaker {
-        color: #0d6efd;
-      }
-      
-      .conversation-transcript .student .speaker {
-        color: #198754;
-      }
-      
-      .conversation-transcript .content {
-        padding: 5px 0;
-      }
-    `;
-    document.head.appendChild(style);
-  })
-  .catch(error => {
-    console.error('Error loading interview details:', error);
-    contentContainer.innerHTML = `
-      <div class="alert alert-danger">
-        <strong>Error loading interview details:</strong> ${error.message}
-      </div>
-    `;
-  });
-}
-
-// Search/filter functions
-function filterStudents(searchText) {
-if (!authState.students || authState.students.length === 0) return;
-
-searchText = searchText.toLowerCase().trim();
-
-// If search text is empty, display all students
-if (!searchText) {
-  displayStudents(authState.students);
-  return;
-}
-
-// Filter students based on search text
-const filteredStudents = authState.students.filter(student => {
-  return (
-    (student.displayName && student.displayName.toLowerCase().includes(searchText)) ||
-    (student.email && student.email.toLowerCase().includes(searchText)) ||
-    (student.collegeId && student.collegeId.toLowerCase().includes(searchText)) ||
-    (student.deptId && student.deptId.toLowerCase().includes(searchText)) ||
-    (student.sectionId && student.sectionId.toLowerCase().includes(searchText))
-  );
 });
 
-displayStudents(filteredStudents);
-}
+// Export PDF functions
+window.pdfDownloads = {
+  downloadStudentReport,
+  downloadInterviewTranscript,
+  loadJsPDF
+};
 
-function filterSessions(searchText) {
-if (!authState.sessions || authState.sessions.length === 0) return;
-
-searchText = searchText.toLowerCase().trim();
-
-// If search text is empty, display all sessions
-if (!searchText) {
-  displaySessions(authState.sessions);
-  return;
-}
-
-// Filter sessions based on search text
-const filteredSessions = authState.sessions.filter(session => {
-  const student = authState.students.find(s => s.uid === session.userId);
-  const studentName = student ? student.displayName : '';
-  
-  return (
-    (studentName && studentName.toLowerCase().includes(searchText)) ||
-    (session.id && session.id.toLowerCase().includes(searchText)) ||
-    (session.status && session.status.toLowerCase().includes(searchText))
-  );
-});
-
-displaySessions(filteredSessions);
-}
-
-function filterInterviews(searchText) {
-if (!authState.interviews || authState.interviews.length === 0) return;
-
-searchText = searchText.toLowerCase().trim();
-
-// If search text is empty, display all interviews
-if (!searchText) {
-  displayInterviews(authState.interviews);
-  return;
-}
-
-// Filter interviews based on search text
-const filteredInterviews = authState.interviews.filter(interview => {
-  const student = authState.students.find(s => s.uid === interview.userId);
-  const studentName = student ? student.displayName : '';
-  
-  return (
-    (studentName && studentName.toLowerCase().includes(searchText)) ||
-    (interview.id && interview.id.toLowerCase().includes(searchText)) ||
-    (interview.status && interview.status.toLowerCase().includes(searchText)) ||
-    (interview.interviewType && interview.interviewType.toLowerCase().includes(searchText))
-  );
-});
-
-displayInterviews(filteredInterviews);
-}
-
-// Update stats display
-function updateStatsDisplay() {
-document.getElementById('total-students-count').textContent = authState.students.length;
-document.getElementById('total-sessions-count').textContent = authState.sessions.length;
-document.getElementById('total-interviews-count').textContent = authState.interviews.length;
-}
+// Export the clean display functions
+window.cleanDashboardDisplay = {
+  displaySessions,
+  displayInterviews
+};
 
 // Export teacher portal functions
 window.irisTeacher = {
-signIn: signInWithEmailPassword,
-signUp: signUpWithEmailPassword,
-signInWithGoogle,
-signOut,
-getCurrentUser: () => authState.user,
-getUserProfile: () => authState.userProfile,
-refreshStudentData,
-refreshSessionData,
-refreshInterviewData,
-filterStudents,
-filterSessions,
-filterInterviews
+  signIn: signInWithEmailPassword,
+  signUp: signUpWithEmailPassword,
+  signInWithGoogle,
+  signOut,
+  getCurrentUser: () => authState.user,
+  getUserProfile: () => authState.userProfile,
+  refreshStudentData,
+  refreshSessionData,
+  refreshInterviewData,
+  filterStudents,
+  filterSessions,
+  filterInterviews,
+  downloadStudentReport,
+  downloadInterviewTranscript
 };

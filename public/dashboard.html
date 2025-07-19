@@ -82,17 +82,15 @@
                                         <tr>
                                             <th>Name</th>
                                             <th>Email</th>
-                                            <th>College ID</th>
-                                            <th>Dept ID</th>
-                                            <th>Section ID</th>
                                             <th>Resume Sessions</th>
                                             <th>Mock Interviews</th>
+                                            <th>Avg Performance</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody id="students-table-body">
                                         <tr>
-                                            <td colspan="8" class="text-center">Loading students data...</td>
+                                            <td colspan="6" class="text-center">Loading students data...</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -115,27 +113,13 @@
                         </div>
                     </div>
                     
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Student Name</th>
-                                            <th>Session ID</th>
-                                            <th>Date</th>
-                                            <th>Status</th>
-                                            <th>Match Score</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="sessions-table-body">
-                                        <tr>
-                                            <td colspan="6" class="text-center">Loading sessions data...</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                    <div id="sessions-grouped-container">
+                        <!-- Enhanced grouped sessions will be displayed here -->
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
                             </div>
+                            <p class="mt-2">Loading sessions data...</p>
                         </div>
                     </div>
                 </div>
@@ -154,28 +138,13 @@
                         </div>
                     </div>
                     
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Student Name</th>
-                                            <th>Interview ID</th>
-                                            <th>Date</th>
-                                            <th>Type</th>
-                                            <th>Status</th>
-                                            <th>Overall Score</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="interviews-table-body">
-                                        <tr>
-                                            <td colspan="7" class="text-center">Loading interviews data...</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                    <div id="interviews-grouped-container">
+                        <!-- Enhanced grouped interviews will be displayed here -->
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
                             </div>
+                            <p class="mt-2">Loading interviews data...</p>
                         </div>
                     </div>
                 </div>
@@ -322,9 +291,9 @@
         </main>
     </div>
 
-    <!-- Session Details Modal -->
+    <!-- Enhanced Session Details Modal -->
     <div class="modal fade" id="session-details-modal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Resume Analysis Details</h5>
@@ -342,9 +311,9 @@
         </div>
     </div>
 
-    <!-- Interview Details Modal -->
+    <!-- Enhanced Interview Details Modal -->
     <div class="modal fade" id="interview-details-modal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Mock Interview Details</h5>
@@ -393,12 +362,968 @@
         </div>
     </div>
 
+    <!-- Password Reset Modal -->
+    <div class="modal fade" id="reset-password-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Reset Password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="reset-password-form">
+                        <div class="mb-3">
+                            <label for="reset-email" class="form-label">Email address</label>
+                            <input type="email" class="form-control" id="reset-email" required>
+                            <div class="form-text">We'll send you a password reset link.</div>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">Send Reset Link</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="firebase-auth.js"></script>
     <script src="app.js"></script>
+
+    <!-- Complete Enhanced Styling for All Components -->
+    <style>
+        /* Enhanced performance indicators */
+        .performance-indicator-large {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-weight: bold;
+            color: white;
+            font-size: 1rem;
+        }
+
+        .performance-excellent { 
+            background: linear-gradient(135deg, #28a745, #20c997); 
+        }
+        
+        .performance-good { 
+            background: linear-gradient(135deg, #17a2b8, #20c997); 
+        }
+        
+        .performance-average { 
+            background: linear-gradient(135deg, #ffc107, #fd7e14); 
+            color: #000; 
+        }
+        
+        .performance-poor { 
+            background: linear-gradient(135deg, #dc3545, #e83e8c); 
+        }
+
+        /* Stat items for student summaries */
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Enhanced score indicators */
+        .score-indicator {
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-weight: bold;
+            color: white;
+            font-size: 0.9rem;
+            margin: 0 auto;
+        }
+
+        .score-high { 
+            background: linear-gradient(135deg, #28a745, #20c997);
+        }
+        .score-medium { 
+            background: linear-gradient(135deg, #ffc107, #fd7e14); 
+            color: #000; 
+        }
+        .score-low { 
+            background: linear-gradient(135deg, #dc3545, #e83e8c); 
+        }
+
+        /* Enhanced score displays for modals */
+        .score-display,
+        .score-display-large {
+            text-align: center;
+        }
+
+        .score-circle,
+        .score-circle-small,
+        .score-circle-large {
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            margin: 0 auto;
+        }
+
+        .score-circle { width: 60px; height: 60px; }
+        .score-circle-small { width: 50px; height: 50px; }
+        .score-circle-large { width: 80px; height: 80px; }
+
+        .score-value,
+        .score-value-large {
+            font-size: 1.2rem;
+        }
+
+        .score-value-large {
+            font-size: 1.8rem;
+        }
+
+        .score-suffix,
+        .score-suffix-large {
+            font-size: 0.8rem;
+            margin-left: 2px;
+        }
+
+        .score-label,
+        .score-label-large {
+            font-size: 0.9rem;
+            margin-top: 5px;
+            color: #6c757d;
+        }
+
+        /* Score Classes for Enhanced Display */
+        .score-excellent { background: linear-gradient(135deg, #28a745, #20c997); }
+        .score-good { background: linear-gradient(135deg, #17a2b8, #20c997); }
+        .score-average { background: linear-gradient(135deg, #ffc107, #fd7e14); color: #000; }
+        .score-poor { background: linear-gradient(135deg, #dc3545, #e83e8c); }
+        .score-neutral { background: linear-gradient(135deg, #6c757d, #adb5bd); }
+
+        /* Status badges with enhanced styling */
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-completed { 
+            background: linear-gradient(135deg, rgba(40, 167, 69, 0.15) 0%, rgba(40, 167, 69, 0.25) 100%); 
+            color: #28a745; 
+            border: 1px solid rgba(40, 167, 69, 0.3);
+        }
+
+        .status-processing { 
+            background: linear-gradient(135deg, rgba(255, 193, 7, 0.15) 0%, rgba(255, 193, 7, 0.25) 100%); 
+            color: #ffc107; 
+            border: 1px solid rgba(255, 193, 7, 0.3);
+        }
+
+        .status-failed { 
+            background: linear-gradient(135deg, rgba(220, 53, 69, 0.15) 0%, rgba(220, 53, 69, 0.25) 100%); 
+            color: #dc3545; 
+            border: 1px solid rgba(220, 53, 69, 0.3);
+        }
+
+        .status-active { 
+            background: linear-gradient(135deg, rgba(23, 162, 184, 0.15) 0%, rgba(23, 162, 184, 0.25) 100%); 
+            color: #17a2b8; 
+            border: 1px solid rgba(23, 162, 184, 0.3);
+        }
+
+        /* Enhanced grouped session cards */
+        .student-group-card {
+            border: none;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            margin-bottom: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .student-group-card:hover {
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+            transform: translateY(-2px);
+        }
+
+        .student-group-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px 10px 0 0;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .student-group-header:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        }
+
+        .collapse-icon {
+            transition: transform 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        /* Performance breakdown styling */
+        .performance-summary {
+            text-align: center;
+        }
+
+        .performance-breakdown {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .performance-label {
+            display: block;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin-top: 5px;
+        }
+
+        /* Interview and Session Detail Cards */
+        .interview-detail-card,
+        .session-detail-card {
+            border: 1px solid #e3e6f0;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            background: #fff;
+            overflow: hidden;
+        }
+
+        .interview-header,
+        .session-header {
+            background: linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%);
+            padding: 20px;
+            border-bottom: 1px solid #e3e6f0;
+        }
+
+        .interview-title,
+        .session-title {
+            margin: 0;
+            font-size: 1.1rem;
+            color: #2c3e50;
+        }
+
+        .metadata-item {
+            display: inline-block;
+            margin-right: 15px;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .interview-actions,
+        .session-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        /* Assessment Cards */
+        .assessment-card,
+        .assessment-card-detailed {
+            border: 1px solid #e3e6f0;
+            border-radius: 8px;
+            background: #fff;
+            height: 100%;
+        }
+
+        .assessment-header,
+        .assessment-header-detailed {
+            background: linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%);
+            padding: 15px;
+            border-bottom: 1px solid #e3e6f0;
+        }
+
+        .assessment-content,
+        .assessment-content-detailed {
+            padding: 15px;
+        }
+
+        .technical-card,
+        .technical-assessment { border-left: 4px solid #007bff; }
+        .communication-card,
+        .communication-assessment { border-left: 4px solid #28a745; }
+        .behavioral-card,
+        .behavioral-assessment { border-left: 4px solid #ffc107; }
+
+        /* Score Badges */
+        .score-badge,
+        .score-badge-large {
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+
+        .score-badge-large {
+            padding: 6px 15px;
+            font-size: 0.9rem;
+        }
+
+        /* Feedback and Content */
+        .feedback-section,
+        .feedback-section-detailed {
+            background: rgba(0, 123, 255, 0.05);
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 3px solid #007bff;
+        }
+
+        .feedback-text {
+            margin: 0;
+            font-style: italic;
+        }
+
+        .strength-list,
+        .weakness-list,
+        .strength-list-detailed,
+        .weakness-list-detailed {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .strength-list li,
+        .strength-list-detailed li {
+            padding: 4px 0;
+            position: relative;
+            padding-left: 20px;
+        }
+
+        .strength-list li::before,
+        .strength-list-detailed li::before {
+            content: "✓";
+            color: #28a745;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+
+        .weakness-list li,
+        .weakness-list-detailed li {
+            padding: 4px 0;
+            position: relative;
+            padding-left: 20px;
+        }
+
+        .weakness-list li::before,
+        .weakness-list-detailed li::before {
+            content: "!";
+            color: #ffc107;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+
+        /* Improvement Areas */
+        .improvement-card,
+        .improvement-card-detailed {
+            border: 1px solid #e3e6f0;
+            border-radius: 8px;
+            padding: 15px;
+            background: #fff;
+            height: 100%;
+        }
+
+        .improvement-header-detailed {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .improvement-number-detailed {
+            width: 30px;
+            height: 30px;
+            background: #007bff;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+
+        .improvement-title-detailed {
+            margin: 0;
+            color: #2c3e50;
+        }
+
+        /* Skills and Tags */
+        .skill-tag,
+        .skill-tag-detailed {
+            display: inline-block;
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin: 2px;
+            font-weight: 500;
+        }
+
+        .focus-area-tag {
+            display: inline-block;
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin: 3px;
+            font-weight: 500;
+        }
+
+        .skills-container,
+        .skills-tags {
+            margin-top: 8px;
+        }
+
+        /* Importance Badges */
+        .importance-badge,
+        .importance-badge-detailed {
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .importance-high { background-color: #dc3545; color: white; }
+        .importance-medium { background-color: #ffc107; color: black; }
+        .importance-low { background-color: #28a745; color: white; }
+
+        /* Section Containers */
+        .section-container {
+            background: #fff;
+            border: 1px solid #e3e6f0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .section-container h5,
+        .section-container h6 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        /* Conversation Styles */
+        .conversation-container-detailed {
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #e3e6f0;
+            border-radius: 8px;
+            padding: 15px;
+            background: #f8f9fa;
+        }
+
+        .conversation-message {
+            margin-bottom: 15px;
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .interviewer-message {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            margin-left: 20px;
+        }
+
+        .student-message {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            margin-right: 20px;
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .message-speaker {
+            flex: 1;
+        }
+
+        .message-number {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .message-content {
+            line-height: 1.4;
+        }
+
+        /* Company Sessions */
+        .company-sessions-group {
+            border-bottom: 1px solid #e3e6f0;
+            padding: 20px 0;
+        }
+
+        .company-sessions-group:last-child {
+            border-bottom: none;
+        }
+
+        .company-header {
+            margin-bottom: 15px;
+        }
+
+        .company-name {
+            color: #2c3e50;
+            margin: 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #007bff;
+            display: inline-block;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        /* Analysis Content */
+        .analysis-content,
+        .analysis-content-detailed,
+        .assessment-content-detailed {
+            line-height: 1.6;
+            color: #495057;
+        }
+
+        .analysis-content-detailed {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #007bff;
+        }
+
+        /* Job Description */
+        .job-description-container {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #28a745;
+        }
+
+        .job-description-text {
+            line-height: 1.6;
+            color: #495057;
+        }
+
+        /* Enhanced modal sizing */
+        .modal-xl {
+            max-width: 1200px;
+        }
+
+        /* Card improvements */
+        .card {
+            border: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
+            background-color: #fff;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        /* Table improvements */
+        .table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .table-hover tbody tr:hover {
+            background-color: rgba(0, 123, 255, 0.05);
+        }
+
+        /* Performance indicators */
+        .performance-indicator {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .performance-excellent { 
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); 
+            color: #155724; 
+            border: 1px solid #c3e6cb;
+        }
+
+        .performance-good { 
+            background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%); 
+            color: #0c5460; 
+            border: 1px solid #bee5eb;
+        }
+
+        .performance-average { 
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); 
+            color: #856404; 
+            border: 1px solid #ffeaa7;
+        }
+
+        .performance-poor { 
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%); 
+            color: #721c24; 
+            border: 1px solid #f5c6cb;
+        }
+
+        /* Enhanced badges */
+        .badge {
+            font-size: 0.75rem;
+            padding: 6px 10px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+
+        /* Responsive improvements */
+        @media (max-width: 768px) {
+            .btn-group-vertical .btn {
+                margin-bottom: 2px;
+            }
+            
+            .table-responsive {
+                font-size: 0.9rem;
+            }
+            
+            .score-indicator {
+                width: 35px;
+                height: 35px;
+                font-size: 0.8rem;
+            }
+
+            .student-group-header {
+                padding: 15px;
+            }
+
+            .performance-indicator-large {
+                width: 50px;
+                height: 50px;
+                font-size: 0.9rem;
+            }
+
+            .stat-number {
+                font-size: 1.2rem;
+            }
+
+            .interview-header,
+            .session-header {
+                padding: 15px;
+            }
+            
+            .interview-actions,
+            .session-actions {
+                flex-direction: column;
+                gap: 5px;
+            }
+            
+            .score-circle-large {
+                width: 60px;
+                height: 60px;
+            }
+            
+            .score-value-large {
+                font-size: 1.4rem;
+            }
+            
+            .conversation-message {
+                margin-left: 10px;
+                margin-right: 10px;
+            }
+            
+            .assessment-card-detailed {
+                margin-bottom: 20px;
+            }
+
+            .btn-group {
+                flex-direction: column;
+                width: 100%;
+            }
+            
+            .btn-group .btn {
+                border-radius: 0.375rem !important;
+                margin-bottom: 2px;
+            }
+            
+            .btn-group .btn:last-child {
+                margin-bottom: 0;
+            }
+        }
+
+        /* Navigation improvements */
+        .nav-item.active {
+            background-color: var(--bs-primary);
+            color: white;
+        }
+
+        .nav-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Enhanced alert styling */
+        .alert {
+            border: none;
+            border-radius: 8px;
+        }
+
+        /* Enhanced button styling */
+        .btn-group .btn,
+        .btn-group-vertical .btn {
+            margin-right: 2px;
+            margin-bottom: 2px;
+        }
+
+        .btn-group .btn:last-child,
+        .btn-group-vertical .btn:last-child {
+            margin-right: 0;
+            margin-bottom: 0;
+        }
+
+        /* Container improvements for better spacing */
+        .container-fluid {
+            padding-left: 2rem;
+            padding-right: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .container-fluid {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+        }
+
+        /* Stats improvements */
+        .stats-item {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .stats-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Loading states */
+        .spinner-border-sm {
+            width: 1rem;
+            height: 1rem;
+        }
+
+        /* Animation for Collapsible Elements */
+        .collapse-icon {
+            transition: transform 0.3s ease;
+        }
+
+        /* Border Top for First Items */
+        .border-top {
+            border-top: 1px solid #e3e6f0 !important;
+        }
+
+        /* No Data Messages */
+        .no-data-message {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        /* Enhancement for Lists */
+        .concepts-list {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        .concepts-list li {
+            padding: 5px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .concepts-list li:last-child {
+            border-bottom: none;
+        }
+
+        /* Strategy Items */
+        .strategy-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-left: 3px solid #007bff;
+        }
+
+        .strategy-gap,
+        .strategy-approach,
+        .strategy-focus {
+            margin-bottom: 8px;
+        }
+
+        .strategy-gap {
+            color: #dc3545;
+            font-weight: 600;
+        }
+
+        /* Question Items */
+        .question-item {
+            border: 1px solid #e3e6f0;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            overflow: hidden;
+        }
+
+        .question-header {
+            background: #f8f9fa;
+            padding: 12px 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .question-header:hover {
+            background: #e9ecef;
+        }
+
+        .question-text {
+            flex: 1;
+            margin: 0 10px;
+            font-weight: 500;
+        }
+
+        .question-guidance {
+            padding: 15px;
+            background: #fff;
+            border-top: 1px solid #e3e6f0;
+            color: #495057;
+            line-height: 1.5;
+        }
+
+        .more-questions {
+            text-align: center;
+            padding: 10px;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        /* Modal improvements */
+        .modal-header {
+            background-color: var(--bs-primary);
+            color: white;
+        }
+
+        .modal-header .btn-close {
+            filter: invert(1);
+        }
+
+        /* Smooth collapse animation */
+        .collapse {
+            transition: height 0.35s ease;
+        }
+
+        .collapsing {
+            transition: height 0.35s ease;
+        }
+
+        /* Interview info styling */
+        .interview-info {
+            background: linear-gradient(145deg, #f8f9fc 0%, #ffffff 100%);
+            border: 1px solid #e3e6f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .interview-info:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border-color: #d1d3e2;
+        }
+
+        .scores-section {
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 6px;
+            padding: 10px;
+            border: 1px solid #e3e6f0;
+        }
+
+        /* Session item improvements */
+        .session-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .session-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        /* Company session styling */
+        .company-session {
+            border-left: 4px solid #007bff;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: linear-gradient(145deg, #f8f9fa 0%, #ffffff 100%);
+            border-radius: 0 8px 8px 0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Icon styling */
+        .fas {
+            transition: color 0.3s ease;
+        }
+
+        .company-name .fas {
+            color: #6c757d;
+        }
+
+        /* Responsive text adjustments */
+        @media (max-width: 576px) {
+            .student-group-header h5 {
+                font-size: 1rem;
+            }
+            
+            .company-name {
+                font-size: 1rem;
+            }
+            
+            .performance-indicator {
+                font-size: 0.7rem;
+                padding: 3px 8px;
+            }
+            
+            .badge {
+                font-size: 0.7rem;
+                padding: 4px 8px;
+            }
+        }
+    </style>
 </body>
 </html>
