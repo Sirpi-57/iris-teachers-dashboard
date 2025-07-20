@@ -3011,6 +3011,432 @@ function refreshInterviewData() {
     });
 }
 
+function fetchJobAnalytics() {
+  if (!authState.sessions || !authState.interviews || !authState.students) {
+    return { resumeAnalytics: {}, interviewAnalytics: {} };
+  }
+  
+  const resumeAnalytics = {};
+  const interviewAnalytics = {};
+  
+  // Process Resume Sessions
+  authState.sessions.forEach(session => {
+    if (!session.jobDescription || session.status !== 'completed') return;
+    
+    const jobDesc = session.jobDescription.trim();
+    const student = authState.students.find(s => s.uid === session.userId);
+    const matchScore = session.results?.match_results?.matchScore;
+    
+    if (!student || !matchScore) return;
+    
+    if (!resumeAnalytics[jobDesc]) {
+      resumeAnalytics[jobDesc] = {
+        jobDescription: jobDesc,
+        students: [],
+        totalSessions: 0,
+        avgScore: 0
+      };
+    }
+    
+    let studentEntry = resumeAnalytics[jobDesc].students.find(s => s.userId === student.uid);
+    if (!studentEntry) {
+      studentEntry = {
+        userId: student.uid,
+        name: student.displayName || 'Unknown',
+        email: student.email || 'N/A',
+        collegeId: student.collegeId || 'N/A',
+        deptId: student.deptId || 'N/A',
+        sectionId: student.sectionId || 'N/A',
+        scores: [],
+        avgScore: 0,
+        sessionCount: 0
+      };
+      resumeAnalytics[jobDesc].students.push(studentEntry);
+    }
+    
+    studentEntry.scores.push(matchScore);
+    studentEntry.sessionCount++;
+    studentEntry.avgScore = Math.round(studentEntry.scores.reduce((a, b) => a + b, 0) / studentEntry.scores.length);
+    
+    resumeAnalytics[jobDesc].totalSessions++;
+  });
+  
+  // Process Mock Interviews
+  authState.interviews.forEach(interview => {
+    if (!interview.jobDescription || interview.status !== 'completed') return;
+    
+    const jobDesc = interview.jobDescription.trim();
+    const student = authState.students.find(s => s.uid === interview.userId);
+    const overallScore = interview.analysis?.overallScore;
+    
+    if (!student || !overallScore) return;
+    
+    if (!interviewAnalytics[jobDesc]) {
+      interviewAnalytics[jobDesc] = {
+        jobDescription: jobDesc,
+        students: [],
+        totalInterviews: 0,
+        avgScore: 0
+      };
+    }
+    
+    let studentEntry = interviewAnalytics[jobDesc].students.find(s => s.userId === student.uid);
+    if (!studentEntry) {
+      studentEntry = {
+        userId: student.uid,
+        name: student.displayName || 'Unknown',
+        email: student.email || 'N/A',
+        collegeId: student.collegeId || 'N/A',
+        deptId: student.deptId || 'N/A',
+        sectionId: student.sectionId || 'N/A',
+        scores: [],
+        avgScore: 0,
+        interviewCount: 0,
+        technicalScores: [],
+        communicationScores: [],
+        behavioralScores: []
+      };
+      interviewAnalytics[jobDesc].students.push(studentEntry);
+    }
+    
+    studentEntry.scores.push(overallScore);
+    studentEntry.interviewCount++;
+    studentEntry.avgScore = Math.round(studentEntry.scores.reduce((a, b) => a + b, 0) / studentEntry.scores.length);
+    
+    const techScore = interview.analysis?.technicalAssessment?.score;
+    const commScore = interview.analysis?.communicationAssessment?.score;
+    const behavScore = interview.analysis?.behavioralAssessment?.score;
+    
+    if (techScore) studentEntry.technicalScores.push(techScore);
+    if (commScore) studentEntry.communicationScores.push(commScore);
+    if (behavScore) studentEntry.behavioralScores.push(behavScore);
+    
+    interviewAnalytics[jobDesc].totalInterviews++;
+  });
+  
+  // Calculate averages and sort
+  Object.values(resumeAnalytics).forEach(job => {
+    if (job.students.length > 0) {
+      job.avgScore = Math.round(job.students.reduce((sum, student) => sum + student.avgScore, 0) / job.students.length);
+      job.students.sort((a, b) => b.avgScore - a.avgScore);
+    }
+  });
+  
+  Object.values(interviewAnalytics).forEach(job => {
+    if (job.students.length > 0) {
+      job.avgScore = Math.round(job.students.reduce((sum, student) => sum + student.avgScore, 0) / job.students.length);
+      job.students.sort((a, b) => b.avgScore - a.avgScore);
+    }
+  });
+  
+  return { resumeAnalytics, interviewAnalytics };
+}
+
+function displayJobAnalytics() {
+  const container = document.getElementById('job-analytics-container');
+  if (!container) return;
+  
+  const { resumeAnalytics, interviewAnalytics } = fetchJobAnalytics();
+  
+  if (Object.keys(resumeAnalytics).length === 0 && Object.keys(interviewAnalytics).length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-4">
+        <div class="alert alert-info">
+          <i class="fas fa-info-circle me-2"></i>
+          No job analytics data available. Data will appear once students complete sessions and interviews.
+        </div>
+      </div>
+    `;
+    return;
+  }
+  
+  let html = `
+    <div class="row">
+      <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h1>Job Performance Analytics</h1>
+          <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-primary active" id="show-resume-analytics">
+              <i class="fas fa-file-alt me-2"></i>Resume Analytics
+            </button>
+            <button type="button" class="btn btn-outline-primary" id="show-interview-analytics">
+              <i class="fas fa-video me-2"></i>Interview Analytics
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Resume Analytics Section
+  html += `<div id="resume-analytics-section" class="analytics-section">
+    <h3 class="mb-4"><i class="fas fa-file-alt me-2"></i>Resume Analysis Performance by Job Description</h3>`;
+  
+  if (Object.keys(resumeAnalytics).length === 0) {
+    html += `<div class="alert alert-info">No resume analytics data available.</div>`;
+  } else {
+    const sortedResumeJobs = Object.values(resumeAnalytics).sort((a, b) => b.avgScore - a.avgScore);
+    
+    sortedResumeJobs.forEach((job, index) => {
+      const jobId = `resume-job-${index}`;
+      
+      html += `
+        <div class="job-analytics-card card mb-4">
+          <div class="job-analytics-header" data-bs-toggle="collapse" data-bs-target="#${jobId}" aria-expanded="false">
+            <div class="row align-items-center">
+              <div class="col-md-8">
+                <h5 class="mb-1">
+                  <i class="fas fa-chevron-right collapse-icon me-2"></i>
+                  Job Description #${index + 1}
+                </h5>
+                <div class="job-description-preview">
+                  ${job.jobDescription.length > 100 ? job.jobDescription.substring(0, 100) + '...' : job.jobDescription}
+                </div>
+              </div>
+              <div class="col-md-2 text-center">
+                <div class="stat-item">
+                  <div class="stat-number">${job.students.length}</div>
+                  <div class="stat-label">Students</div>
+                </div>
+              </div>
+              <div class="col-md-2 text-center">
+                <div class="performance-indicator-large ${getPerformanceClass(job.avgScore)}">
+                  ${job.avgScore}%
+                </div>
+                <small class="performance-label">Avg Score</small>
+              </div>
+            </div>
+          </div>
+          <div class="collapse" id="${jobId}">
+            <div class="card-body">
+              <div class="row mb-3">
+                <div class="col-12">
+                  <h6><i class="fas fa-file-text me-2"></i>Complete Job Description</h6>
+                  <div class="job-description-full">${job.jobDescription}</div>
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-12">
+                  <h6><i class="fas fa-trophy me-2"></i>Student Performance Rankings</h6>
+                  <div class="table-responsive">
+                    <table class="table table-hover">
+                      <thead>
+                        <tr>
+                          <th>Rank</th>
+                          <th>Student</th>
+                          <th>Email</th>
+                          <th>College</th>
+                          <th>Dept</th>
+                          <th>Section</th>
+                          <th>Sessions</th>
+                          <th>Avg Score</th>
+                        </tr>
+                      </thead>
+                      <tbody>`;
+      
+      job.students.forEach((student, rank) => {
+        html += `
+          <tr class="${rank < 3 ? 'table-success' : ''}">
+            <td>
+              <span class="rank-badge rank-${rank + 1}">
+                ${rank + 1}
+                ${rank === 0 ? '<i class="fas fa-crown ms-1"></i>' : ''}
+              </span>
+            </td>
+            <td>${student.name}</td>
+            <td>${student.email}</td>
+            <td>${student.collegeId}</td>
+            <td>${student.deptId}</td>
+            <td>${student.sectionId}</td>
+            <td>${student.sessionCount}</td>
+            <td>
+              <span class="score-badge ${getScoreClass(student.avgScore)}">
+                ${student.avgScore}%
+              </span>
+            </td>
+          </tr>`;
+      });
+      
+      html += `</tbody></table></div></div></div></div></div>`;
+    });
+  }
+  
+  html += `</div>`;
+  
+  // Interview Analytics Section
+  html += `<div id="interview-analytics-section" class="analytics-section" style="display: none;">
+    <h3 class="mb-4"><i class="fas fa-video me-2"></i>Interview Performance by Job Description</h3>`;
+  
+  if (Object.keys(interviewAnalytics).length === 0) {
+    html += `<div class="alert alert-info">No interview analytics data available.</div>`;
+  } else {
+    const sortedInterviewJobs = Object.values(interviewAnalytics).sort((a, b) => b.avgScore - a.avgScore);
+    
+    sortedInterviewJobs.forEach((job, index) => {
+      const jobId = `interview-job-${index}`;
+      
+      html += `
+        <div class="job-analytics-card card mb-4">
+          <div class="job-analytics-header" data-bs-toggle="collapse" data-bs-target="#${jobId}" aria-expanded="false">
+            <div class="row align-items-center">
+              <div class="col-md-8">
+                <h5 class="mb-1">
+                  <i class="fas fa-chevron-right collapse-icon me-2"></i>
+                  Job Description #${index + 1}
+                </h5>
+                <div class="job-description-preview">
+                  ${job.jobDescription.length > 100 ? job.jobDescription.substring(0, 100) + '...' : job.jobDescription}
+                </div>
+              </div>
+              <div class="col-md-2 text-center">
+                <div class="stat-item">
+                  <div class="stat-number">${job.students.length}</div>
+                  <div class="stat-label">Students</div>
+                </div>
+              </div>
+              <div class="col-md-2 text-center">
+                <div class="performance-indicator-large ${getPerformanceClass(job.avgScore)}">
+                  ${job.avgScore}%
+                </div>
+                <small class="performance-label">Avg Score</small>
+              </div>
+            </div>
+          </div>
+          <div class="collapse" id="${jobId}">
+            <div class="card-body">
+              <div class="row mb-3">
+                <div class="col-12">
+                  <h6><i class="fas fa-file-text me-2"></i>Complete Job Description</h6>
+                  <div class="job-description-full">${job.jobDescription}</div>
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-12">
+                  <h6><i class="fas fa-trophy me-2"></i>Student Performance Rankings</h6>
+                  <div class="table-responsive">
+                    <table class="table table-hover">
+                      <thead>
+                        <tr>
+                          <th>Rank</th>
+                          <th>Student</th>
+                          <th>Email</th>
+                          <th>College</th>
+                          <th>Dept</th>
+                          <th>Section</th>
+                          <th>Interviews</th>
+                          <th>Overall</th>
+                          <th>Technical</th>
+                          <th>Communication</th>
+                          <th>Behavioral</th>
+                        </tr>
+                      </thead>
+                      <tbody>`;
+      
+      job.students.forEach((student, rank) => {
+        const avgTech = student.technicalScores.length > 0 ? 
+          Math.round(student.technicalScores.reduce((a, b) => a + b, 0) / student.technicalScores.length) : 'N/A';
+        const avgComm = student.communicationScores.length > 0 ? 
+          Math.round(student.communicationScores.reduce((a, b) => a + b, 0) / student.communicationScores.length) : 'N/A';
+        const avgBehav = student.behavioralScores.length > 0 ? 
+          Math.round(student.behavioralScores.reduce((a, b) => a + b, 0) / student.behavioralScores.length) : 'N/A';
+        
+        html += `
+          <tr class="${rank < 3 ? 'table-success' : ''}">
+            <td>
+              <span class="rank-badge rank-${rank + 1}">
+                ${rank + 1}
+                ${rank === 0 ? '<i class="fas fa-crown ms-1"></i>' : ''}
+              </span>
+            </td>
+            <td>${student.name}</td>
+            <td>${student.email}</td>
+            <td>${student.collegeId}</td>
+            <td>${student.deptId}</td>
+            <td>${student.sectionId}</td>
+            <td>${student.interviewCount}</td>
+            <td>
+              <span class="score-badge ${getScoreClass(student.avgScore)}">
+                ${student.avgScore}%
+              </span>
+            </td>
+            <td>
+              <span class="score-badge-sm ${avgTech !== 'N/A' ? getScoreClass(avgTech) : 'score-neutral'}">
+                ${avgTech !== 'N/A' ? avgTech + '%' : 'N/A'}
+              </span>
+            </td>
+            <td>
+              <span class="score-badge-sm ${avgComm !== 'N/A' ? getScoreClass(avgComm) : 'score-neutral'}">
+                ${avgComm !== 'N/A' ? avgComm + '%' : 'N/A'}
+              </span>
+            </td>
+            <td>
+              <span class="score-badge-sm ${avgBehav !== 'N/A' ? getScoreClass(avgBehav) : 'score-neutral'}">
+                ${avgBehav !== 'N/A' ? avgBehav + '%' : 'N/A'}
+              </span>
+            </td>
+          </tr>`;
+      });
+      
+      html += `</tbody></table></div></div></div></div></div>`;
+    });
+  }
+  
+  html += `</div>`;
+  
+  container.innerHTML = html;
+  addJobAnalyticsEventListeners();
+}
+
+function getPerformanceClass(score) {
+  if (score >= 80) return 'performance-excellent';
+  if (score >= 65) return 'performance-good';
+  if (score >= 45) return 'performance-average';
+  return 'performance-poor';
+}
+
+function getScoreClass(score) {
+  if (score >= 80) return 'score-excellent';
+  if (score >= 65) return 'score-good';
+  if (score >= 45) return 'score-average';
+  return 'score-poor';
+}
+
+function addJobAnalyticsEventListeners() {
+  document.getElementById('show-resume-analytics')?.addEventListener('click', function() {
+    document.getElementById('resume-analytics-section').style.display = 'block';
+    document.getElementById('interview-analytics-section').style.display = 'none';
+    
+    this.classList.add('active');
+    document.getElementById('show-interview-analytics').classList.remove('active');
+  });
+  
+  document.getElementById('show-interview-analytics')?.addEventListener('click', function() {
+    document.getElementById('resume-analytics-section').style.display = 'none';
+    document.getElementById('interview-analytics-section').style.display = 'block';
+    
+    this.classList.add('active');
+    document.getElementById('show-resume-analytics').classList.remove('active');
+  });
+  
+  document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(button => {
+    button.addEventListener('click', function() {
+      const icon = this.querySelector('.collapse-icon');
+      const target = this.getAttribute('data-bs-target');
+      const collapseElement = document.querySelector(target);
+      
+      if (collapseElement && icon) {
+        collapseElement.addEventListener('shown.bs.collapse', function() {
+          icon.style.transform = 'rotate(90deg)';
+        });
+        
+        collapseElement.addEventListener('hidden.bs.collapse', function() {
+          icon.style.transform = 'rotate(0deg)';
+        });
+      }
+    });
+  });
+}
+
 // Event listeners attachment
 function attachAuthEventListeners() {
   // Handle login/registration page events
@@ -3101,6 +3527,11 @@ function attachAuthEventListeners() {
           tab.classList.remove('active');
         });
         document.getElementById(targetTab)?.classList.add('active');
+        
+        // ADD THIS SECTION: Handle special tab loading
+        if (targetTab === 'job-analytics-tab') {
+          displayJobAnalytics();
+        }
       });
     });
     
