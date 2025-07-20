@@ -832,7 +832,7 @@ function displayStudents(students) {
   tableBody.innerHTML = html;
 }
 
-// Enhanced function to display sessions grouped by student
+// Enhanced function to display sessions grouped by student (without company grouping)
 function displaySessions(sessions) {
   const container = document.getElementById('sessions-grouped-container');
   if (!container) return;
@@ -938,160 +938,136 @@ function displaySessions(sessions) {
           <div class="card-body p-0">
     `;
     
-    // Group sessions by company and sort by date
-    const sessionsByCompany = {};
-    studentData.sessions.forEach(session => {
+    // Sort sessions by date (newest first) and display directly
+    const sortedSessions = [...studentData.sessions].sort((a, b) => 
+      new Date(b.start_time || 0) - new Date(a.start_time || 0)
+    );
+    
+    sortedSessions.forEach((session, sessionIndex) => {
+      const sessionDate = formatToIST(session.start_time);
+      const duration = calculateDuration(session.start_time, session.end_time);
+      const status = session.status || 'unknown';
+      
+      // Extract basic session data
+      const results = session.results || {};
+      const matchResults = results.match_results || {};
+      const matchScore = matchResults.matchScore || null;
+      const jobRequirements = matchResults.jobRequirements || {};
+      
+      // Extract company name for display
       const companyName = extractCompanyName(session.jobDescription);
-      if (!sessionsByCompany[companyName]) {
-        sessionsByCompany[companyName] = [];
+      
+      // Status styling
+      let statusClass = '';
+      let statusIcon = '';
+      switch(status) {
+        case 'completed': 
+          statusClass = 'status-completed'; 
+          statusIcon = 'fas fa-check-circle';
+          break;
+        case 'processing': 
+          statusClass = 'status-processing'; 
+          statusIcon = 'fas fa-clock';
+          break;
+        case 'failed': 
+          statusClass = 'status-failed'; 
+          statusIcon = 'fas fa-times-circle';
+          break;
+        default: 
+          statusClass = 'status-processing';
+          statusIcon = 'fas fa-clock';
       }
-      sessionsByCompany[companyName].push(session);
-    });
-    
-    // Sort companies by most recent session
-    const sortedCompanies = Object.keys(sessionsByCompany).sort((a, b) => {
-      const latestA = Math.max(...sessionsByCompany[a].map(s => new Date(s.start_time || 0)));
-      const latestB = Math.max(...sessionsByCompany[b].map(s => new Date(s.start_time || 0)));
-      return latestB - latestA;
-    });
-    
-    sortedCompanies.forEach((companyName, companyIndex) => {
-      const companySessions = sessionsByCompany[companyName].sort((a, b) => 
-        new Date(b.start_time || 0) - new Date(a.start_time || 0)
-      );
+      
+      const getScoreClass = (score) => {
+        if (score === null) return 'score-neutral';
+        if (score >= 80) return 'score-excellent';
+        if (score >= 65) return 'score-good';
+        if (score >= 45) return 'score-average';
+        return 'score-poor';
+      };
       
       html += `
-        <div class="company-sessions-group ${companyIndex === 0 ? 'border-top' : ''}">
-          <div class="company-header">
-            <h6 class="company-name">
-              <i class="fas fa-building me-2"></i>${companyName}
-              <span class="badge bg-secondary ms-2">${companySessions.length} session(s)</span>
-            </h6>
-          </div>
-      `;
-      
-      companySessions.forEach((session, sessionIndex) => {
-        const sessionDate = formatToIST(session.start_time);
-        const duration = calculateDuration(session.start_time, session.end_time);
-        const status = session.status || 'unknown';
-        
-        // Extract basic session data
-        const results = session.results || {};
-        const matchResults = results.match_results || {};
-        const matchScore = matchResults.matchScore || null;
-        const jobRequirements = matchResults.jobRequirements || {};
-        
-        // Status styling
-        let statusClass = '';
-        let statusIcon = '';
-        switch(status) {
-          case 'completed': 
-            statusClass = 'status-completed'; 
-            statusIcon = 'fas fa-check-circle';
-            break;
-          case 'processing': 
-            statusClass = 'status-processing'; 
-            statusIcon = 'fas fa-clock';
-            break;
-          case 'failed': 
-            statusClass = 'status-failed'; 
-            statusIcon = 'fas fa-times-circle';
-            break;
-          default: 
-            statusClass = 'status-processing';
-            statusIcon = 'fas fa-clock';
-        }
-        
-        const getScoreClass = (score) => {
-          if (score === null) return 'score-neutral';
-          if (score >= 80) return 'score-excellent';
-          if (score >= 65) return 'score-good';
-          if (score >= 45) return 'score-average';
-          return 'score-poor';
-        };
-        
-        html += `
-          <div class="session-detail-card-clean">
-            <div class="session-header-clean">
-              <div class="row align-items-center">
-                <div class="col-md-6">
-                  <div class="session-basic-info">
-                    <h6 class="session-title">
-                      <i class="fas fa-file-alt me-2"></i>
-                      Session #${sessionIndex + 1}
-                      <span class="status-badge ${statusClass} ms-2">
-                        <i class="${statusIcon} me-1"></i>${status.toUpperCase()}
-                      </span>
-                    </h6>
-                    <div class="session-metadata">
-                      <span class="metadata-item">
-                        <i class="fas fa-calendar me-1"></i>${sessionDate}
-                      </span>
-                      <span class="metadata-item">
-                        <i class="fas fa-clock me-1"></i>${duration}
-                      </span>
-                    </div>
+        <div class="session-detail-card-clean ${sessionIndex === 0 ? 'border-top' : ''}">
+          <div class="session-header-clean">
+            <div class="row align-items-center">
+              <div class="col-md-6">
+                <div class="session-basic-info">
+                  <h6 class="session-title">
+                    <i class="fas fa-file-alt me-2"></i>
+                    Session #${sessionIndex + 1}
+                    <span class="status-badge ${statusClass} ms-2">
+                      <i class="${statusIcon} me-1"></i>${status.toUpperCase()}
+                    </span>
+                  </h6>
+                  <div class="session-metadata">
+                    <span class="metadata-item">
+                      <i class="fas fa-building me-1"></i>${companyName}
+                    </span>
+                    <span class="metadata-item">
+                      <i class="fas fa-calendar me-1"></i>${sessionDate}
+                    </span>
+                    <span class="metadata-item">
+                      <i class="fas fa-clock me-1"></i>${duration}
+                    </span>
                   </div>
                 </div>
-                <div class="col-md-3 text-center">
-                  <div class="score-display ${getScoreClass(matchScore)}">
-                    <div class="score-circle-small">
-                      <span class="score-value">${matchScore !== null ? matchScore : 'N/A'}</span>
-                      <span class="score-suffix">${matchScore !== null ? '%' : ''}</span>
-                    </div>
-                    <div class="score-label">Match Score</div>
+              </div>
+              <div class="col-md-3 text-center">
+                <div class="score-display ${getScoreClass(matchScore)}">
+                  <div class="score-circle-small">
+                    <span class="score-value">${matchScore !== null ? matchScore : 'N/A'}</span>
+                    <span class="score-suffix">${matchScore !== null ? '%' : ''}</span>
                   </div>
+                  <div class="score-label">Match Score</div>
                 </div>
-                <div class="col-md-3 text-end">
-                  <div class="session-actions">
-                    <button class="btn btn-sm btn-outline-primary view-session-btn" 
-                            data-id="${session.id}" 
-                            title="View Full Session Details">
-                      <i class="fas fa-eye me-1"></i>Details
-                    </button>
-                  </div>
+              </div>
+              <div class="col-md-3 text-end">
+                <div class="session-actions">
+                  <button class="btn btn-sm btn-outline-primary view-session-btn" 
+                          data-id="${session.id}" 
+                          title="View Full Session Details">
+                    <i class="fas fa-eye me-1"></i>Details
+                  </button>
                 </div>
               </div>
             </div>
-            
-            ${status === 'completed' && jobRequirements && Object.keys(jobRequirements).length > 0 ? `
-              <div class="job-requirements-summary">
-                <div class="row">
-                  <div class="col-md-3">
-                    <div class="requirement-item">
-                      <strong>Position:</strong> ${jobRequirements.jobTitle || 'Not specified'}
-                    </div>
-                  </div>
-                  <div class="col-md-3">
-                    <div class="requirement-item">
-                      <strong>Experience:</strong> ${jobRequirements.experienceLevel || 'Not specified'}
-                    </div>
-                  </div>
-                  <div class="col-md-6">
-                    <div class="requirement-item">
-                      <strong>Education:</strong> ${jobRequirements.educationNeeded || 'Not specified'}
-                    </div>
+          </div>
+          
+          ${status === 'completed' && jobRequirements && Object.keys(jobRequirements).length > 0 ? `
+            <div class="job-requirements-summary">
+              <div class="row">
+                <div class="col-md-3">
+                  <div class="requirement-item">
+                    <strong>Position:</strong> ${jobRequirements.jobTitle || 'Not specified'}
                   </div>
                 </div>
-                ${jobRequirements.requiredSkills && jobRequirements.requiredSkills.length > 0 ? `
-                  <div class="required-skills mt-2">
-                    <strong>Required Skills:</strong>
-                    <div class="skills-tags-clean mt-1">
-                      ${jobRequirements.requiredSkills.slice(0, 8).map(skill => 
-                        `<span class="skill-tag-clean">${skill}</span>`
-                      ).join('')}
-                      ${jobRequirements.requiredSkills.length > 8 ? 
-                        `<span class="more-skills">+${jobRequirements.requiredSkills.length - 8} more</span>` : ''}
-                    </div>
+                <div class="col-md-3">
+                  <div class="requirement-item">
+                    <strong>Experience:</strong> ${jobRequirements.experienceLevel || 'Not specified'}
                   </div>
-                ` : ''}
+                </div>
+                <div class="col-md-6">
+                  <div class="requirement-item">
+                    <strong>Education:</strong> ${jobRequirements.educationNeeded || 'Not specified'}
+                  </div>
+                </div>
               </div>
-            ` : ''}
-          </div>
-        `;
-      });
-      
-      html += `</div>`;
+              ${jobRequirements.requiredSkills && jobRequirements.requiredSkills.length > 0 ? `
+                <div class="required-skills mt-2">
+                  <strong>Required Skills:</strong>
+                  <div class="skills-tags-clean mt-1">
+                    ${jobRequirements.requiredSkills.slice(0, 8).map(skill => 
+                      `<span class="skill-tag-clean">${skill}</span>`
+                    ).join('')}
+                    ${jobRequirements.requiredSkills.length > 8 ? 
+                      `<span class="more-skills">+${jobRequirements.requiredSkills.length - 8} more</span>` : ''}
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          ` : ''}
+        </div>
+      `;
     });
     
     html += `
